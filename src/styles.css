@@ -1,0 +1,130 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-display: 'Space Grotesk', 'Inter', ui-sans-serif, system-ui;
+  --font-body: 'Inter', Arial, ui-sans-serif, system-ui;
+
+  --color-primary: #17171c;
+  --color-ink: #212121;
+  --color-deep-green: #003c33;
+  --color-dark-navy: #071829;
+  --color-canvas: #ffffff;
+  --color-soft-stone: #eeece7;
+  --color-pale-green: #edfce9;
+  --color-hairline: #d9d9dd;
+  --color-border-light: #e5e7eb;
+  --color-card-border: #f2f2f2;
+  --color-muted: #93939f;
+  --color-slate: #75758a;
+  --color-body-muted: #616161;
+  --color-action-blue: #1863dc;
+  --color-coral: #ff7759;
+  --color-coral-soft: #ffad9b;
+  --color-error: #b30000;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Hero float animations ──────────────────────────────────────────────── */
+@keyframes hero-float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+@keyframes hero-float-slow {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-6px); }
+}
+.hero-float { animation: hero-float 4s ease-in-out infinite; }
+.hero-float-slow { animation: hero-float-slow 6s ease-in-out infinite; }
+
+/* ── Angular Calendar overrides ─────────────────────────────────────────── */
+.cal-container .cal-month-view {
+  background: transparent;
+}
+
+/* Day-of-week header row */
+.cal-container .cal-header {
+  background: var(--color-soft-stone);
+  border-bottom: 1px solid var(--color-border-light);
+}
+.cal-container .cal-header .cal-cell {
+  padding: 8px 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  border: none;
+}
+
+/* Week rows */
+.cal-container .cal-days .cal-cell-row {
+  border-bottom: 1px solid var(--color-border-light);
+  min-height: 88px;
+}
+.cal-container .cal-days .cal-cell-row:last-child {
+  border-bottom: none;
+}
+
+/* Individual day cells */
+.cal-container .cal-month-cell {
+  border-right: 1px solid var(--color-border-light);
+  transition: background 0.1s;
+}
+.cal-container .cal-month-cell:last-child {
+  border-right: none;
+}
+
+/* Today highlight — cell tint only; number styled in template */
+.cal-container .cal-today {
+  background: color-mix(in srgb, var(--color-coral) 6%, transparent) !important;
+}
+
+/* Out-of-month cells */
+.cal-container .cal-out-month {
+  background: color-mix(in srgb, var(--color-soft-stone) 40%, transparent);
+  opacity: 0.55;
+}
+
+/* Day number default */
+.cal-container .cal-day-number {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  float: none;
+  margin: 0;
+  line-height: 1;
+}
+.cal-container .cal-cell-top {
+  min-height: unset;
+  padding: 8px 8px 4px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+/* Weekend cells — subtle tint */
+.cal-container .cal-weekend .cal-day-number {
+  color: var(--color-slate);
+}
+
+/* Preview events — dashed border */
+.cal-preview-event {
+  opacity: 0.55;
+  border: 1px dashed currentColor;
+}

@@ -1,0 +1,29 @@
+{
+  "name": "ilook-api",
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx src/db/migrate.ts",
+    "db:push": "drizzle-kit push"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.7",
+    "@lucia-auth/adapter-drizzle": "^1.1.0",
+    "@node-rs/argon2": "^2.0.2",
+    "drizzle-orm": "^0.38.4",
+    "hono": "^4.7.11",
+    "lucia": "^3.2.2",
+    "nanoid": "^5.1.5",
+    "postgres": "^3.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.14",
+    "drizzle-kit": "^0.30.4",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}

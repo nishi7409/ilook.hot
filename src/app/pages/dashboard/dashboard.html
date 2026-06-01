@@ -1,0 +1,263 @@
+<main class="flex-1 overflow-y-auto flex flex-col min-w-0">
+
+  <!-- Top bar -->
+  <div class="h-16 px-6 md:px-8 flex items-center justify-between border-b border-border-light bg-canvas shrink-0">
+    <div>
+      <h1 class="font-display text-ink text-xl font-medium tracking-tight">{{ greeting }}</h1>
+      <p class="text-muted text-xs font-body">
+        {{ today.day }}, {{ today.date }}
+        @if (todayWorkout(); as w) { · {{ w.name }} day }
+      </p>
+    </div>
+    <div class="flex items-center gap-3">
+      <span class="inline-flex items-center gap-1.5 bg-pale-green text-deep-green text-xs font-medium px-3 py-1.5 rounded-full font-body">
+        <span class="w-1.5 h-1.5 rounded-full bg-deep-green/60"></span>
+        {{ daysLoggedThisWeek() }} day{{ daysLoggedThisWeek() === 1 ? '' : 's' }} logged this week
+      </span>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div class="flex-1 p-5 md:p-6 flex flex-col gap-5">
+
+    <!-- Row 1: Today's workout + Weekly view -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+      <!-- Today's workout -->
+      <section class="lg:col-span-2 bg-canvas rounded-xl border border-border-light p-6" aria-labelledby="today-heading">
+        <div class="flex items-start justify-between mb-5">
+          <div>
+            <p class="text-[11px] font-medium text-muted uppercase tracking-widest font-body mb-1">Today's workout</p>
+            @if (todayWorkout(); as w) {
+              <h2 id="today-heading" class="font-display text-ink text-2xl font-medium tracking-tight">{{ w.name }}</h2>
+            } @else {
+              <h2 id="today-heading" class="font-display text-muted text-2xl font-medium tracking-tight">Rest day</h2>
+            }
+          </div>
+          <span class="inline-flex items-center gap-1.5 bg-coral/10 text-coral text-xs font-medium px-3 py-1.5 rounded-full font-body shrink-0">
+            <span class="w-1.5 h-1.5 rounded-full bg-coral animate-pulse"></span>
+            Today
+          </span>
+        </div>
+
+        @if (todayWorkout(); as w) {
+          @if (w.isRest) {
+            <p class="text-muted text-sm font-body py-6 text-center">Enjoy your rest. Recovery is part of the work.</p>
+          } @else {
+            <div class="flex flex-col divide-y divide-border-light">
+              @for (ex of w.exercises; track ex.exercise.id) {
+                <div class="flex items-center justify-between py-3">
+                  <div class="flex items-center gap-3">
+                    <div class="w-7 h-7 rounded-lg bg-soft-stone flex items-center justify-center shrink-0" aria-hidden="true">
+                      <ng-icon name="heroBolt" class="text-body-muted" size="12" />
+                    </div>
+                    <span class="text-ink text-sm font-medium font-body">{{ ex.exercise.name }}</span>
+                  </div>
+                  <div class="flex items-center gap-4 text-xs text-muted font-body">
+                    <span>{{ ex.sets }} × {{ ex.reps }}</span>
+                    @if (ex.weight) {
+                      <span class="text-body-muted font-medium">{{ ex.weight }} lbs</span>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+
+            <a
+              routerLink="/workouts"
+              class="mt-5 flex items-center justify-center gap-2 w-full bg-primary text-white text-sm font-medium py-3 rounded-full hover:bg-ink transition-colors font-body"
+            >
+              <ng-icon name="heroPlayCircle" size="16" />
+              Start workout
+            </a>
+          }
+        } @else {
+          <p class="text-muted text-sm font-body py-6 text-center">No active program. Set one up in Programs.</p>
+          <a routerLink="/programs" class="mt-4 flex items-center justify-center w-full border border-border-light text-ink text-sm font-medium py-3 rounded-full hover:bg-soft-stone transition-colors font-body">
+            Go to Programs
+          </a>
+        }
+      </section>
+
+      <!-- Weekly schedule -->
+      <section class="bg-canvas rounded-xl border border-border-light p-6" aria-labelledby="week-heading">
+        <p class="text-[11px] font-medium text-muted uppercase tracking-widest font-body mb-1">This week</p>
+        <h2 id="week-heading" class="font-display text-ink text-2xl font-medium tracking-tight mb-5">Schedule</h2>
+
+        <div class="flex flex-col gap-1.5">
+          @for (d of weekSchedule(); track d.day) {
+            <div
+              [class]="d.isToday
+                ? 'flex items-center justify-between px-3 py-2.5 rounded-lg bg-primary text-white'
+                : 'flex items-center justify-between px-3 py-2.5 rounded-lg'"
+            >
+              <div class="flex items-center gap-3">
+                <div class="flex flex-col items-center w-8 shrink-0">
+                  <span [class]="d.isToday ? 'text-white/50 text-[10px] uppercase tracking-wide font-body' : 'text-muted text-[10px] uppercase tracking-wide font-body'">
+                    {{ d.day }}
+                  </span>
+                  <span [class]="d.isToday ? 'text-white text-sm font-medium font-display' : 'text-ink text-sm font-medium font-display'">
+                    {{ d.date }}
+                  </span>
+                </div>
+                <span [class]="d.isToday ? 'text-white text-sm font-body truncate' : d.isPast ? 'text-body-muted text-sm font-body truncate' : 'text-muted text-sm font-body truncate'">
+                  {{ d.focus }}
+                </span>
+              </div>
+
+              @if (d.done) {
+                <ng-icon name="heroCheckCircle" class="text-deep-green shrink-0" size="16" aria-label="Completed" />
+              } @else if (d.isToday) {
+                <span class="w-2 h-2 rounded-full bg-coral shrink-0" aria-label="Today"></span>
+              } @else if (d.isPast) {
+                <span class="w-2 h-2 rounded-full bg-hairline shrink-0" aria-hidden="true"></span>
+              }
+            </div>
+          }
+        </div>
+      </section>
+    </div>
+
+    <!-- Row 2: Calorie summary + Workout progress -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+      <!-- Calorie summary -->
+      <section class="bg-canvas rounded-xl border border-border-light p-6" aria-labelledby="cal-heading">
+        <div class="flex items-start justify-between mb-5">
+          <div>
+            <p class="text-[11px] font-medium text-muted uppercase tracking-widest font-body mb-1">Calories</p>
+            <h2 id="cal-heading" class="font-display text-ink text-2xl font-medium tracking-tight">Today's intake</h2>
+          </div>
+          <div class="text-right">
+            <p class="font-display text-ink text-2xl font-medium">{{ calories().calories | number:'1.0-0' }}</p>
+            <p class="text-muted text-xs font-body">of {{ goals().calories | number:'1.0-0' }} kcal</p>
+          </div>
+        </div>
+
+        <!-- Progress bar -->
+        <div class="h-2 bg-soft-stone rounded-full mb-1 overflow-hidden">
+          <div
+            class="h-full bg-coral rounded-full transition-all duration-500"
+            [style.width.%]="caloriePercent()"
+            role="progressbar"
+            [attr.aria-valuenow]="calories().calories"
+            [attr.aria-valuemin]="0"
+            [attr.aria-valuemax]="goals().calories"
+            aria-label="Calories consumed"
+          ></div>
+        </div>
+        <p class="text-muted text-xs font-body mb-5">{{ (goals().calories - calories().calories) | number:'1.0-0' }} kcal remaining</p>
+
+        <!-- Macros -->
+        <div class="flex flex-col gap-3 mb-6">
+          @for (macro of macros(); track macro.name) {
+            <div>
+              <div class="flex justify-between mb-1">
+                <span class="text-xs font-medium text-ink font-body">{{ macro.name }}</span>
+                <span class="text-xs text-muted font-body">{{ macro.consumed }}{{ macro.unit }} / {{ macro.goal }}{{ macro.unit }}</span>
+              </div>
+              <div class="h-1.5 bg-soft-stone rounded-full overflow-hidden">
+                <div
+                  class="h-full bg-coral/70 rounded-full transition-all duration-500"
+                  [style.width.%]="macro.percent"
+                  role="progressbar"
+                  [attr.aria-valuenow]="macro.consumed"
+                  [attr.aria-valuemin]="0"
+                  [attr.aria-valuemax]="macro.goal"
+                  [attr.aria-label]="macro.name + ' intake'"
+                ></div>
+              </div>
+            </div>
+          }
+        </div>
+
+        <!-- 7-day bar chart -->
+        <p class="text-[11px] font-medium text-muted uppercase tracking-widest font-body mb-2">7-day trend</p>
+        <div echarts [options]="calorieChartOption()" class="h-36 w-full" aria-label="7-day calorie chart"></div>
+      </section>
+
+      <!-- Workout progress -->
+      <section class="bg-canvas rounded-xl border border-border-light p-6" aria-labelledby="progress-heading">
+        <div class="flex items-start justify-between mb-5">
+          <div>
+            <p class="text-[11px] font-medium text-muted uppercase tracking-widest font-body mb-1">Progress</p>
+            <h2 id="progress-heading" class="font-display text-ink text-2xl font-medium tracking-tight">Squat</h2>
+          </div>
+          @if (squatStats(); as stats) {
+            <div class="text-right">
+              <p class="font-display text-ink text-2xl font-medium">{{ stats.current }} <span class="text-base text-muted font-body font-normal">lbs</span></p>
+              <p class="text-xs font-body text-deep-green">
+                <ng-icon name="heroArrowTrendingUp" size="12" class="inline-block mr-0.5" />
+                +{{ stats.gain }} lbs gained
+              </p>
+            </div>
+          }
+        </div>
+
+        <!-- Line chart -->
+        <div echarts [options]="squatChartOption()" class="h-40 w-full mb-1" aria-label="Squat progression chart"></div>
+
+        <!-- Stats row -->
+        @if (squatStats(); as stats) {
+          <div class="grid grid-cols-3 gap-4 pt-4 border-t border-border-light mt-1">
+            <div>
+              <p class="text-[11px] text-muted uppercase tracking-widest font-body">Starting</p>
+              <p class="font-display text-ink text-lg font-medium">{{ stats.start }} <span class="text-sm text-muted font-body font-normal">lbs</span></p>
+            </div>
+            <div>
+              <p class="text-[11px] text-muted uppercase tracking-widest font-body">Current</p>
+              <p class="font-display text-ink text-lg font-medium">{{ stats.current }} <span class="text-sm text-muted font-body font-normal">lbs</span></p>
+            </div>
+            <div>
+              <p class="text-[11px] text-muted uppercase tracking-widest font-body">Gain</p>
+              <p class="font-display text-deep-green text-lg font-medium">+{{ stats.gain }} <span class="text-sm font-body font-normal">lbs</span></p>
+            </div>
+          </div>
+        } @else {
+          <p class="text-muted text-sm font-body pt-4 border-t border-border-light text-center">Log a squat workout to see your progress.</p>
+        }
+      </section>
+    </div>
+
+    <!-- Row 3: Recent sessions -->
+    <section class="bg-canvas rounded-xl border border-border-light p-6" aria-labelledby="recent-heading">
+      <div class="flex items-center justify-between mb-5">
+        <div>
+          <p class="text-[11px] font-medium text-muted uppercase tracking-widest font-body mb-1">History</p>
+          <h2 id="recent-heading" class="font-display text-ink text-2xl font-medium tracking-tight">Recent sessions</h2>
+        </div>
+        <a routerLink="/workouts" class="text-xs font-medium text-muted hover:text-ink font-body transition-colors">View all →</a>
+      </div>
+
+      @if (recentSessions().length) {
+        <div class="flex flex-col divide-y divide-border-light">
+          @for (session of recentSessions(); track session.id) {
+            <div class="flex items-center justify-between py-3.5">
+              <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-soft-stone flex items-center justify-center shrink-0" aria-hidden="true">
+                  <ng-icon name="heroFire" class="text-coral" size="16" />
+                </div>
+                <div>
+                  <p class="text-ink text-sm font-medium font-body">{{ session.name }}</p>
+                  <p class="text-muted text-xs font-body">{{ session.date }} · {{ session.exercises.length }} exercise{{ session.exercises.length === 1 ? '' : 's' }}</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-4 text-right">
+                <div>
+                  <p class="text-ink text-sm font-medium font-body">{{ formatDuration(session.durationSeconds) }}</p>
+                  <p class="text-muted text-xs font-body">duration</p>
+                </div>
+                @if (session.completed) {
+                  <ng-icon name="heroCheckCircle" class="text-deep-green" size="18" aria-label="Completed" />
+                }
+              </div>
+            </div>
+          }
+        </div>
+      } @else {
+        <p class="text-muted text-sm font-body py-4 text-center">No sessions logged yet. Start your first workout.</p>
+      }
+    </section>
+
+  </div>
+</main>

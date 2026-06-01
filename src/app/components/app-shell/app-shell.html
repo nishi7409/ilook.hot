@@ -1,0 +1,191 @@
+<div class="flex h-dvh overflow-hidden bg-[#f5f5f3]">
+
+  <!-- Desktop sidebar -->
+  <aside class="hidden md:flex flex-col w-60 bg-primary shrink-0 border-r border-white/5" aria-label="App sidebar">
+    <div class="h-16 px-5 flex items-center border-b border-white/5 shrink-0">
+      <a routerLink="/" class="font-display text-white text-lg font-medium tracking-tight" aria-label="ilook.hot home">
+        ilook<span class="text-coral" aria-hidden="true">.</span>hot
+      </a>
+    </div>
+    <nav class="flex-1 px-3 py-4 flex flex-col gap-0.5 overflow-y-auto" aria-label="Main navigation">
+      <a routerLink="/dashboard" routerLinkActive="bg-white/8 text-white" [routerLinkActiveOptions]="{ exact: true }"
+        class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-muted text-sm hover:bg-white/5 hover:text-white transition-colors font-body">
+        <ng-icon name="heroSquares2x2" size="16" aria-hidden="true" />Overview
+      </a>
+      <a routerLink="/programs" routerLinkActive="bg-white/8 text-white"
+        class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-muted text-sm hover:bg-white/5 hover:text-white transition-colors font-body">
+        <ng-icon name="heroCalendarDays" size="16" aria-hidden="true" />Programs
+      </a>
+      <a routerLink="/calories" routerLinkActive="bg-white/8 text-white"
+        class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-muted text-sm hover:bg-white/5 hover:text-white transition-colors font-body">
+        <ng-icon name="heroFire" size="16" aria-hidden="true" />Calories
+      </a>
+      <a routerLink="/workouts" routerLinkActive="bg-white/8 text-white"
+        class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-muted text-sm hover:bg-white/5 hover:text-white transition-colors font-body">
+        <ng-icon name="heroBolt" size="16" aria-hidden="true" />Workouts
+      </a>
+    </nav>
+    <div class="px-3 pb-4 border-t border-white/5 shrink-0 pt-3">
+      @if (programService.activeProgram(); as prog) {
+        <div class="px-3 py-2 mb-1">
+          <p class="text-[10px] font-medium text-muted/50 uppercase tracking-widest font-body mb-1">Active program</p>
+          <div class="flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-coral shrink-0"></span>
+            <span class="text-muted text-xs font-body leading-snug truncate">{{ prog.name }}</span>
+          </div>
+        </div>
+      }
+      <a routerLink="/settings" routerLinkActive="bg-white/8 text-white"
+        class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-muted text-sm hover:bg-white/5 hover:text-white transition-colors font-body">
+        <ng-icon name="heroAdjustmentsHorizontal" size="16" aria-hidden="true" />Settings
+      </a>
+
+      @if (authService.user(); as user) {
+        <div class="px-3 py-2 mt-1">
+          <p class="text-[10px] text-muted/50 font-body truncate" title="{{ user.email }}">{{ user.email }}</p>
+        </div>
+        <button
+          type="button"
+          (click)="authService.signOut()"
+          class="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-muted text-sm hover:bg-white/5 hover:text-white transition-colors font-body"
+        >
+          <ng-icon name="heroArrowRightOnRectangle" size="16" aria-hidden="true" />Sign out
+        </button>
+      } @else {
+        <button
+          type="button"
+          (click)="openAuth('signin')"
+          class="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-muted text-sm hover:bg-white/5 hover:text-white transition-colors font-body mt-1"
+        >
+          Sign in
+        </button>
+      }
+    </div>
+  </aside>
+
+  <!-- Mobile slide-over drawer -->
+  @if (showMobileMenu()) {
+    <div class="fixed inset-0 z-50 flex md:hidden" role="dialog" aria-modal="true" aria-label="Navigation menu">
+      <!-- Backdrop -->
+      <button
+        type="button"
+        class="absolute inset-0 bg-ink/50 backdrop-blur-sm"
+        (click)="showMobileMenu.set(false)"
+        aria-label="Close menu"
+      ></button>
+
+      <!-- Drawer -->
+      <aside class="relative w-72 max-w-[85vw] h-full bg-primary flex flex-col z-10 shadow-2xl">
+        <div class="h-14 px-5 flex items-center justify-between border-b border-white/5 shrink-0">
+          <span class="font-display text-white text-lg font-medium tracking-tight">
+            ilook<span class="text-coral">.</span>hot
+          </span>
+          <button
+            type="button"
+            (click)="showMobileMenu.set(false)"
+            class="text-muted hover:text-white transition-colors"
+            aria-label="Close menu"
+          >
+            <ng-icon name="heroXMark" size="22" />
+          </button>
+        </div>
+
+        <nav class="flex-1 px-3 py-4 flex flex-col gap-1 overflow-y-auto" aria-label="Main navigation">
+          <a routerLink="/dashboard" routerLinkActive="bg-white/10 text-white" [routerLinkActiveOptions]="{ exact: true }"
+            (click)="showMobileMenu.set(false)"
+            class="flex items-center gap-3 px-4 py-3.5 rounded-xl text-muted text-base hover:bg-white/5 hover:text-white transition-colors font-body">
+            <ng-icon name="heroSquares2x2" size="20" aria-hidden="true" />Overview
+          </a>
+          <a routerLink="/programs" routerLinkActive="bg-white/10 text-white"
+            (click)="showMobileMenu.set(false)"
+            class="flex items-center gap-3 px-4 py-3.5 rounded-xl text-muted text-base hover:bg-white/5 hover:text-white transition-colors font-body">
+            <ng-icon name="heroCalendarDays" size="20" aria-hidden="true" />Programs
+          </a>
+          <a routerLink="/calories" routerLinkActive="bg-white/10 text-white"
+            (click)="showMobileMenu.set(false)"
+            class="flex items-center gap-3 px-4 py-3.5 rounded-xl text-muted text-base hover:bg-white/5 hover:text-white transition-colors font-body">
+            <ng-icon name="heroFire" size="20" aria-hidden="true" />Calories
+          </a>
+          <a routerLink="/workouts" routerLinkActive="bg-white/10 text-white"
+            (click)="showMobileMenu.set(false)"
+            class="flex items-center gap-3 px-4 py-3.5 rounded-xl text-muted text-base hover:bg-white/5 hover:text-white transition-colors font-body">
+            <ng-icon name="heroBolt" size="20" aria-hidden="true" />Workouts
+          </a>
+        </nav>
+
+        <div class="px-3 pb-5 border-t border-white/5 shrink-0 pt-3">
+          @if (programService.activeProgram(); as prog) {
+            <div class="px-3 py-2 mb-1">
+              <p class="text-[10px] font-medium text-muted/50 uppercase tracking-widest font-body mb-1">Active program</p>
+              <div class="flex items-center gap-2">
+                <span class="w-1.5 h-1.5 rounded-full bg-coral shrink-0"></span>
+                <span class="text-muted text-sm font-body truncate">{{ prog.name }}</span>
+              </div>
+            </div>
+          }
+          <a routerLink="/settings" routerLinkActive="bg-white/10 text-white"
+            (click)="showMobileMenu.set(false)"
+            class="flex items-center gap-3 px-4 py-3.5 rounded-xl text-muted text-base hover:bg-white/5 hover:text-white transition-colors font-body">
+            <ng-icon name="heroAdjustmentsHorizontal" size="20" aria-hidden="true" />Settings
+          </a>
+
+          @if (authService.user(); as user) {
+            <div class="px-4 py-2">
+              <p class="text-xs text-muted/50 font-body truncate">{{ user.email }}</p>
+            </div>
+            <button
+              type="button"
+              (click)="authService.signOut(); showMobileMenu.set(false)"
+              class="flex items-center gap-3 w-full px-4 py-3.5 rounded-xl text-muted text-base hover:bg-white/5 hover:text-white transition-colors font-body"
+            >
+              <ng-icon name="heroArrowRightOnRectangle" size="20" aria-hidden="true" />Sign out
+            </button>
+          } @else {
+            <button
+              type="button"
+              (click)="openAuth('signin'); showMobileMenu.set(false)"
+              class="flex items-center gap-3 w-full px-4 py-3.5 rounded-xl text-muted text-base hover:bg-white/5 hover:text-white transition-colors font-body"
+            >
+              Sign in
+            </button>
+          }
+        </div>
+      </aside>
+    </div>
+  }
+
+  <!-- Main content -->
+  <div class="flex-1 flex flex-col overflow-hidden min-w-0">
+
+    <!-- Mobile top bar -->
+    <div class="md:hidden h-14 px-4 flex items-center justify-between bg-primary border-b border-white/5 shrink-0">
+      <button
+        type="button"
+        (click)="showMobileMenu.set(true)"
+        class="text-muted hover:text-white transition-colors p-1 -ml-1"
+        aria-label="Open navigation menu"
+        aria-expanded="showMobileMenu()"
+      >
+        <ng-icon name="heroBars3" size="22" />
+      </button>
+      <span class="font-display text-white text-base font-medium tracking-tight">
+        ilook<span class="text-coral">.</span>hot
+      </span>
+      <!-- Spacer to center the logo -->
+      <div class="w-8"></div>
+    </div>
+
+    <!-- Page content -->
+    <div class="flex-1 flex flex-col overflow-hidden min-w-0">
+      <router-outlet />
+    </div>
+  </div>
+
+</div>
+
+@if (showAuthModal()) {
+  <app-auth-modal
+    [initialMode]="authMode()"
+    (close)="showAuthModal.set(false)"
+  />
+}

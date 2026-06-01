@@ -1,0 +1,425 @@
+<div class="flex flex-1 flex-col overflow-hidden min-w-0">
+
+  @if (showUnderConstruction) {
+    <div class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-canvas/95 backdrop-blur-sm">
+      <div class="text-center max-w-sm px-6">
+        <div class="text-5xl mb-4">🚧</div>
+        <h2 class="font-display text-ink text-2xl font-medium mb-2 tracking-tight">Under construction</h2>
+        <p class="text-muted text-sm font-body leading-relaxed">
+          Calorie tracking is coming soon. Get the programs feature dialled in first.
+        </p>
+      </div>
+    </div>
+  }
+
+  <!-- Top bar -->
+  <div class="h-16 px-6 md:px-8 flex items-center justify-between border-b border-border-light bg-canvas shrink-0">
+    <div>
+      <h1 class="font-display text-ink text-xl font-medium tracking-tight">Calories</h1>
+      <p class="text-muted text-xs font-body">{{ today }}</p>
+    </div>
+    <a
+      routerLink="/settings"
+      class="inline-flex items-center gap-2 px-3 py-2 border border-border-light text-muted text-xs font-medium rounded-full font-body hover:border-ink hover:text-ink transition-colors"
+      aria-label="Edit nutrition goals in settings"
+    >
+      <ng-icon name="heroAdjustmentsHorizontal" size="14" />
+      Goals
+    </a>
+  </div>
+
+  <!-- Add food modal (unified: select → search / scan / custom) -->
+  @if (addingTo()) {
+    <div class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" role="dialog" aria-modal="true" [attr.aria-label]="'Add food to ' + mealLabels[addingTo()!]">
+      <!-- Backdrop -->
+      <button
+        type="button"
+        class="absolute inset-0 bg-ink/40 backdrop-blur-sm"
+        (click)="closeAddModal()"
+        aria-label="Close"
+      ></button>
+
+      <div class="relative w-full max-w-md bg-canvas rounded-2xl shadow-2xl flex flex-col overflow-hidden z-10 max-h-[90vh]">
+
+        <!-- Modal header -->
+        <div class="px-5 py-4 border-b border-border-light flex items-center justify-between shrink-0">
+          <div class="flex items-center gap-3">
+            @if (addMode() !== 'select') {
+              <button type="button" (click)="addMode.set('select'); stopScanner()" class="text-muted hover:text-ink transition-colors -ml-1" aria-label="Back">
+                <ng-icon name="heroChevronLeft" size="18" />
+              </button>
+            }
+            <h2 class="font-display text-ink text-base font-medium">
+              @switch (addMode()) {
+                @case ('select') { Add food to {{ mealLabels[addingTo()!] }} }
+                @case ('search') { Search foods }
+                @case ('scan') { Scan barcode }
+                @case ('custom') { Add custom food }
+              }
+            </h2>
+          </div>
+          <button type="button" (click)="closeAddModal()" class="text-muted hover:text-ink transition-colors" aria-label="Close">
+            <ng-icon name="heroXMark" size="20" />
+          </button>
+        </div>
+
+        <!-- Option picker -->
+        @if (addMode() === 'select') {
+          <div class="p-4 flex flex-col gap-3">
+            <button
+              type="button"
+              (click)="addMode.set('search'); nutritionService.search('')"
+              class="flex items-center gap-4 p-4 rounded-xl border border-border-light hover:border-ink hover:bg-soft-stone/40 transition-colors text-left"
+            >
+              <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <ng-icon name="heroMagnifyingGlass" size="18" class="text-primary" />
+              </div>
+              <div>
+                <p class="text-ink text-sm font-medium font-body">Search database</p>
+                <p class="text-muted text-xs font-body">Find food by name or brand</p>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              (click)="startScan()"
+              class="flex items-center gap-4 p-4 rounded-xl border border-border-light hover:border-ink hover:bg-soft-stone/40 transition-colors text-left"
+            >
+              <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <ng-icon name="heroQrCode" size="18" class="text-primary" />
+              </div>
+              <div>
+                <p class="text-ink text-sm font-medium font-body">Scan barcode</p>
+                <p class="text-muted text-xs font-body">{{ barcodeSupported ? 'Use camera to scan a product barcode' : 'Requires Chrome or Edge' }}</p>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              (click)="addMode.set('custom')"
+              class="flex items-center gap-4 p-4 rounded-xl border border-border-light hover:border-ink hover:bg-soft-stone/40 transition-colors text-left"
+            >
+              <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <ng-icon name="heroPencilSquare" size="18" class="text-primary" />
+              </div>
+              <div>
+                <p class="text-ink text-sm font-medium font-body">Add custom food</p>
+                <p class="text-muted text-xs font-body">Enter nutritional info manually</p>
+              </div>
+            </button>
+          </div>
+        }
+
+        <!-- Search mode -->
+        @if (addMode() === 'search') {
+          <div class="flex flex-col overflow-hidden flex-1 min-h-0">
+            <div class="px-4 py-3 flex items-center gap-2 border-b border-border-light shrink-0">
+              <ng-icon name="heroMagnifyingGlass" class="text-muted shrink-0" size="14" />
+              <input
+                type="search"
+                [ngModel]="searchQuery()"
+                (ngModelChange)="onSearch($event)"
+                placeholder="Search foods…"
+                class="flex-1 text-sm font-body bg-transparent outline-none placeholder:text-muted"
+                aria-label="Search foods"
+                autofocus
+              />
+            </div>
+
+            @if (selectedFood(); as food) {
+              <div class="px-4 py-4 flex items-center gap-3 border-b border-border-light shrink-0 bg-soft-stone/30">
+                <div class="flex-1 min-w-0">
+                  <p class="text-ink text-sm font-medium font-body truncate">{{ food.name }}</p>
+                  <p class="text-muted text-[11px] font-body">{{ previewCalories() }} kcal · {{ food.protein * servings() | number:'1.0-0' }}g protein</p>
+                </div>
+                <div class="flex items-center gap-1 shrink-0">
+                  <button type="button" (click)="decreaseServings()" class="w-7 h-7 flex items-center justify-center rounded-md border border-border-light bg-canvas text-ink text-sm hover:bg-soft-stone transition-colors" aria-label="Decrease servings">−</button>
+                  <span class="text-sm font-medium font-body w-8 text-center">{{ servings() }}</span>
+                  <button type="button" (click)="increaseServings()" class="w-7 h-7 flex items-center justify-center rounded-md border border-border-light bg-canvas text-ink text-sm hover:bg-soft-stone transition-colors" aria-label="Increase servings">+</button>
+                </div>
+                <button
+                  type="button"
+                  (click)="confirmAdd(); closeAddModal()"
+                  class="inline-flex items-center gap-1 px-3 py-1.5 bg-primary text-white text-xs font-medium rounded-full font-body hover:bg-ink transition-colors shrink-0"
+                >
+                  <ng-icon name="heroCheckCircle" size="13" />
+                  Add
+                </button>
+              </div>
+            }
+
+            <div class="overflow-y-auto flex-1">
+              @for (food of searchResults(); track food.id) {
+                <button
+                  type="button"
+                  (click)="selectFood(food)"
+                  class="w-full text-left px-4 py-3 hover:bg-soft-stone transition-colors flex items-center justify-between border-b border-border-light last:border-0"
+                >
+                  <div>
+                    <p class="text-ink text-sm font-medium font-body leading-snug">{{ food.name }}</p>
+                    @if (food.brand) {
+                      <p class="text-muted text-[11px] font-body">{{ food.brand }} · {{ food.servingSize }} {{ food.servingUnit }}</p>
+                    }
+                  </div>
+                  <span class="text-xs font-medium text-muted font-body shrink-0 ml-2">{{ food.calories }} kcal</span>
+                </button>
+              } @empty {
+                @if (searchQuery()) {
+                  <p class="px-4 py-8 text-center text-muted text-sm font-body">No results for "{{ searchQuery() }}"</p>
+                } @else {
+                  <p class="px-4 py-8 text-center text-muted text-sm font-body">Start typing to search…</p>
+                }
+              }
+            </div>
+          </div>
+        }
+
+        <!-- Scan mode -->
+        @if (addMode() === 'scan') {
+          <div class="p-5 flex flex-col gap-4">
+            @if (showBarcodeScanner()) {
+              <div class="relative w-full aspect-video rounded-2xl overflow-hidden bg-black border border-border-light">
+                <video
+                  data-scanner-video
+                  autoplay
+                  playsinline
+                  muted
+                  class="w-full h-full object-cover"
+                ></video>
+                <div class="absolute inset-x-8 top-1/2 -translate-y-1/2 h-0.5 bg-coral/80 rounded-full shadow-[0_0_8px_rgba(255,119,89,0.8)]"></div>
+                <div class="absolute inset-8 border-2 border-white/20 rounded-xl pointer-events-none"></div>
+              </div>
+              <p class="text-muted text-sm font-body text-center">Point your camera at a barcode (EAN-13, UPC-A, etc.)</p>
+            }
+
+            @if (scanLoading()) {
+              <div class="flex items-center justify-center gap-2 text-primary text-sm font-body">
+                <span class="w-1.5 h-1.5 rounded-full bg-primary animate-ping"></span>
+                Looking up product…
+              </div>
+            }
+
+            @if (scanError()) {
+              <div class="px-4 py-3 bg-error/10 border border-error/30 rounded-xl">
+                <p class="text-error text-sm font-body">{{ scanError() }}</p>
+                <button type="button" (click)="addMode.set('search')" class="mt-2 text-primary text-xs font-body underline">Search manually instead</button>
+              </div>
+            }
+          </div>
+        }
+
+        <!-- Custom food mode -->
+        @if (addMode() === 'custom') {
+          <div class="overflow-y-auto flex-1 p-5">
+            <div class="flex flex-col gap-4">
+              <div class="grid grid-cols-2 gap-3">
+                <div class="col-span-2">
+                  <label class="block text-xs font-medium text-ink font-body mb-1.5" for="cf-name">Food name <span class="text-error" aria-hidden="true">*</span></label>
+                  <input id="cf-name" type="text"
+                    [ngModel]="customFood().name"
+                    (ngModelChange)="updateCustomFood('name', $event)"
+                    placeholder="e.g. Greek Yogurt"
+                    class="w-full border border-border-light rounded-lg px-3 py-2.5 text-sm font-body text-ink outline-none focus:border-ink" />
+                </div>
+                <div class="col-span-2">
+                  <label class="block text-xs font-medium text-ink font-body mb-1.5" for="cf-brand">Brand <span class="text-muted font-normal">(optional)</span></label>
+                  <input id="cf-brand" type="text"
+                    [ngModel]="customFood().brand"
+                    (ngModelChange)="updateCustomFood('brand', $event)"
+                    placeholder="e.g. Chobani"
+                    class="w-full border border-border-light rounded-lg px-3 py-2.5 text-sm font-body text-ink outline-none focus:border-ink" />
+                </div>
+              </div>
+
+              <div class="border-t border-border-light pt-4">
+                <p class="text-[11px] font-medium text-muted uppercase tracking-widest font-body mb-3">Nutrition per serving</p>
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-xs font-medium text-ink font-body mb-1.5" for="cf-cal">Calories (kcal)</label>
+                    <input id="cf-cal" type="number" min="0"
+                      [ngModel]="customFood().calories"
+                      (ngModelChange)="updateCustomFood('calories', +$event)"
+                      class="w-full border border-border-light rounded-lg px-3 py-2.5 text-sm font-body text-ink outline-none focus:border-ink" />
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium text-ink font-body mb-1.5" for="cf-protein">Protein (g)</label>
+                    <input id="cf-protein" type="number" min="0"
+                      [ngModel]="customFood().protein"
+                      (ngModelChange)="updateCustomFood('protein', +$event)"
+                      class="w-full border border-border-light rounded-lg px-3 py-2.5 text-sm font-body text-ink outline-none focus:border-ink" />
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium text-ink font-body mb-1.5" for="cf-carbs">Carbs (g)</label>
+                    <input id="cf-carbs" type="number" min="0"
+                      [ngModel]="customFood().carbs"
+                      (ngModelChange)="updateCustomFood('carbs', +$event)"
+                      class="w-full border border-border-light rounded-lg px-3 py-2.5 text-sm font-body text-ink outline-none focus:border-ink" />
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium text-ink font-body mb-1.5" for="cf-fat">Fat (g)</label>
+                    <input id="cf-fat" type="number" min="0"
+                      [ngModel]="customFood().fat"
+                      (ngModelChange)="updateCustomFood('fat', +$event)"
+                      class="w-full border border-border-light rounded-lg px-3 py-2.5 text-sm font-body text-ink outline-none focus:border-ink" />
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium text-ink font-body mb-1.5" for="cf-servsize">Serving size</label>
+                    <input id="cf-servsize" type="number" min="0.1"
+                      [ngModel]="customFood().servingSize"
+                      (ngModelChange)="updateCustomFood('servingSize', +$event)"
+                      class="w-full border border-border-light rounded-lg px-3 py-2.5 text-sm font-body text-ink outline-none focus:border-ink" />
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium text-ink font-body mb-1.5" for="cf-servunit">Unit</label>
+                    <input id="cf-servunit" type="text"
+                      [ngModel]="customFood().servingUnit"
+                      (ngModelChange)="updateCustomFood('servingUnit', $event)"
+                      placeholder="g, oz, cup…"
+                      class="w-full border border-border-light rounded-lg px-3 py-2.5 text-sm font-body text-ink outline-none focus:border-ink" />
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                (click)="addCustomFood()"
+                [disabled]="!customFood().name.trim()"
+                class="w-full py-3 bg-primary text-white text-sm font-medium rounded-full font-body hover:bg-ink transition-colors disabled:opacity-40 disabled:pointer-events-none mt-1"
+              >
+                Add food
+              </button>
+            </div>
+          </div>
+        }
+
+      </div>
+    </div>
+  }
+
+  <!-- Page content -->
+  <div class="flex-1 overflow-y-auto p-5 md:p-6 flex flex-col gap-5">
+
+    <!-- Summary row -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+      <!-- Calorie ring -->
+      <section class="bg-canvas rounded-xl border border-border-light p-6 flex flex-col items-center" aria-labelledby="cal-ring-heading">
+        <p class="text-[11px] font-medium text-muted uppercase tracking-widest font-body mb-1 self-start">Today</p>
+        <h2 id="cal-ring-heading" class="font-display text-ink text-2xl font-medium tracking-tight mb-5 self-start">Calories</h2>
+
+        <div class="relative w-40 h-40 mb-4">
+          <div echarts [options]="donutOption()" class="absolute inset-0" aria-hidden="true"></div>
+          <div class="absolute inset-0 flex flex-col items-center justify-center">
+            <p class="font-display text-ink text-3xl font-medium leading-none">{{ totals().calories | number:'1.0-0' }}</p>
+            <p class="text-muted text-xs font-body mt-1">of {{ goals().calories | number:'1.0-0' }} kcal</p>
+          </div>
+        </div>
+
+        <div class="w-full flex justify-between text-center">
+          <div>
+            <p class="font-display text-ink text-lg font-medium">{{ remaining() | number:'1.0-0' }}</p>
+            <p class="text-muted text-[11px] font-body uppercase tracking-wide">remaining</p>
+          </div>
+          <div class="w-px bg-border-light"></div>
+          <div>
+            <p class="font-display text-coral text-lg font-medium">{{ totals().calories | number:'1.0-0' }}</p>
+            <p class="text-muted text-[11px] font-body uppercase tracking-wide">consumed</p>
+          </div>
+          <div class="w-px bg-border-light"></div>
+          <div>
+            <p class="font-display text-ink text-lg font-medium">{{ goals().calories | number:'1.0-0' }}</p>
+            <p class="text-muted text-[11px] font-body uppercase tracking-wide">goal</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Macros -->
+      <section class="bg-canvas rounded-xl border border-border-light p-6" aria-labelledby="macros-heading">
+        <p class="text-[11px] font-medium text-muted uppercase tracking-widest font-body mb-1">Breakdown</p>
+        <h2 id="macros-heading" class="font-display text-ink text-2xl font-medium tracking-tight mb-5">Macros</h2>
+        <div class="flex flex-col gap-5">
+          @for (macro of macros(); track macro.name) {
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-sm font-medium text-ink font-body">{{ macro.name }}</span>
+                <span class="text-xs text-muted font-body">{{ macro.value }}{{ macro.unit }} / {{ macro.goal }}{{ macro.unit }}</span>
+              </div>
+              <div class="h-2 bg-soft-stone rounded-full overflow-hidden">
+                <div
+                  class="h-full rounded-full transition-all duration-500"
+                  [style.width.%]="macro.pct"
+                  [style.background]="macro.color"
+                  role="progressbar"
+                  [attr.aria-valuenow]="macro.value"
+                  [attr.aria-valuemin]="0"
+                  [attr.aria-valuemax]="macro.goal"
+                  [attr.aria-label]="macro.name + ' intake'"
+                ></div>
+              </div>
+              <p class="text-[11px] text-muted font-body mt-1">{{ macro.pct | number:'1.0-0' }}% of goal</p>
+            </div>
+          }
+        </div>
+      </section>
+
+      <!-- Weekly trend -->
+      <section class="bg-canvas rounded-xl border border-border-light p-6" aria-labelledby="trend-heading">
+        <p class="text-[11px] font-medium text-muted uppercase tracking-widest font-body mb-1">This week</p>
+        <h2 id="trend-heading" class="font-display text-ink text-2xl font-medium tracking-tight mb-5">Trend</h2>
+        <div echarts [options]="weeklyChartOption()" class="h-44 w-full" aria-label="Weekly calorie trend chart"></div>
+      </section>
+    </div>
+
+    <!-- Meal sections -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      @for (meal of mealOrder; track meal) {
+        <section class="bg-canvas rounded-xl border border-border-light overflow-hidden" [attr.aria-labelledby]="'meal-' + meal">
+          <!-- Meal header -->
+          <div class="px-5 py-4 border-b border-border-light flex items-center justify-between">
+            <div>
+              <h2 [id]="'meal-' + meal" class="font-display text-ink text-base font-medium tracking-tight">{{ mealLabels[meal] }}</h2>
+              @if (mealTotals(meal).cal > 0) {
+                <p class="text-muted text-xs font-body">{{ mealTotals(meal).cal | number:'1.0-0' }} kcal · {{ mealTotals(meal).pro | number:'1.0-0' }}g protein</p>
+              }
+            </div>
+            <button
+              type="button"
+              (click)="openAddModal(meal)"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white text-xs font-medium rounded-full font-body hover:bg-ink transition-colors"
+              [attr.aria-label]="'Add food to ' + mealLabels[meal]"
+            >
+              <ng-icon name="heroPlus" size="12" />
+              Add
+            </button>
+          </div>
+
+          <!-- Food entries -->
+          <div class="divide-y divide-border-light">
+            @for (entry of entriesFor(meal); track entry.id) {
+              <div class="flex items-center gap-3 px-5 py-3">
+                <div class="flex-1 min-w-0">
+                  <p class="text-ink text-sm font-medium font-body truncate">{{ entry.food.name }}</p>
+                  <p class="text-muted text-[11px] font-body">{{ entry.servings }} × {{ entry.food.servingSize }} {{ entry.food.servingUnit }}</p>
+                </div>
+                <div class="flex items-center gap-3 text-xs font-body shrink-0">
+                  <span class="text-ink font-medium">{{ entry.calories | number:'1.0-0' }} kcal</span>
+                  <span class="text-muted">{{ entry.protein | number:'1.0-0' }}g P</span>
+                  <button
+                    type="button"
+                    (click)="removeEntry(entry.id)"
+                    class="text-muted hover:text-error transition-colors ml-1"
+                    [attr.aria-label]="'Remove ' + entry.food.name"
+                  >
+                    <ng-icon name="heroTrash" size="13" />
+                  </button>
+                </div>
+              </div>
+            } @empty {
+              <p class="px-5 py-4 text-muted text-sm font-body">Nothing logged yet.</p>
+            }
+          </div>
+        </section>
+      }
+    </div>
+  </div>
+</div>

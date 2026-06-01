@@ -1,0 +1,182 @@
+<div class="flex flex-1 flex-col overflow-hidden min-w-0">
+
+  <!-- Top bar -->
+  <div class="h-14 md:h-16 px-4 md:px-8 flex items-center border-b border-border-light bg-canvas shrink-0">
+    <h1 class="font-display text-ink text-lg md:text-xl font-medium tracking-tight">Settings</h1>
+  </div>
+
+  <div class="flex-1 overflow-y-auto p-4 md:p-8">
+    <div class="max-w-2xl mx-auto flex flex-col gap-6">
+
+      <!-- Active program card -->
+      <section class="bg-canvas rounded-2xl border border-border-light overflow-hidden" aria-labelledby="program-heading">
+        <div class="px-5 md:px-6 py-4 border-b border-border-light">
+          <p class="text-[11px] font-medium text-muted uppercase tracking-widest font-body mb-0.5">Training</p>
+          <h2 id="program-heading" class="font-display text-ink text-lg font-medium">Active program</h2>
+        </div>
+        <div class="px-5 md:px-6 py-5">
+          @if (programService.activeProgram(); as prog) {
+            <div class="flex items-start gap-4">
+              <div class="w-10 h-10 rounded-xl bg-coral/10 flex items-center justify-center shrink-0">
+                <ng-icon name="heroCalendarDays" class="text-coral" size="18" />
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-ink text-sm font-medium font-body">{{ prog.name }}</p>
+                <p class="text-muted text-xs font-body mt-0.5">{{ prog.days.length }} day split@if (prog.startDate) { · started {{ prog.startDate }} }</p>
+                <div class="flex flex-wrap gap-1.5 mt-3">
+                  @for (day of prog.days; track day.id) {
+                    <span class="text-[11px] font-body px-2 py-0.5 rounded-full"
+                      [class]="day.isRest ? 'bg-soft-stone text-muted' : 'bg-coral/10 text-coral font-medium'">
+                      {{ day.name }}
+                    </span>
+                  }
+                </div>
+              </div>
+              <a routerLink="/programs"
+                class="shrink-0 px-3 py-1.5 border border-border-light text-muted text-xs font-body rounded-full hover:border-ink hover:text-ink transition-colors">
+                Manage
+              </a>
+            </div>
+          } @else {
+            <div class="flex items-center gap-4">
+              <div class="w-10 h-10 rounded-xl bg-soft-stone flex items-center justify-center shrink-0">
+                <ng-icon name="heroCalendarDays" class="text-muted" size="18" />
+              </div>
+              <div class="flex-1">
+                <p class="text-ink text-sm font-medium font-body">No active program</p>
+                <p class="text-muted text-xs font-body mt-0.5">Set up a training split to get started.</p>
+              </div>
+              <a routerLink="/programs"
+                class="shrink-0 px-3 py-1.5 bg-primary text-white text-xs font-medium font-body rounded-full hover:bg-ink transition-colors">
+                Set up
+              </a>
+            </div>
+          }
+        </div>
+      </section>
+
+      <!-- Nutrition goals card -->
+      <section class="bg-canvas rounded-2xl border border-border-light overflow-hidden" aria-labelledby="nutrition-heading">
+        <div class="px-5 md:px-6 py-4 border-b border-border-light">
+          <p class="text-[11px] font-medium text-muted uppercase tracking-widest font-body mb-0.5">Nutrition</p>
+          <h2 id="nutrition-heading" class="font-display text-ink text-lg font-medium">Daily goals</h2>
+          <p class="text-muted text-xs font-body mt-1">These targets drive all progress rings and charts in the Calories page.</p>
+        </div>
+
+        <div class="px-5 md:px-6 py-5 flex flex-col gap-5">
+
+          <!-- Calorie goal -->
+          <div>
+            <label for="goal-calories" class="block text-sm font-medium text-ink font-body mb-1.5">
+              Daily calories
+            </label>
+            <div class="flex items-center gap-3">
+              <input
+                id="goal-calories"
+                type="number"
+                [ngModel]="goalsDraft().calories"
+                (ngModelChange)="updateGoalField('calories', +$event)"
+                min="500" max="10000" step="50"
+                class="flex-1 border border-border-light rounded-xl px-4 py-3 text-sm font-body text-ink outline-none focus:border-ink transition-colors"
+              />
+              <span class="text-sm text-muted font-body shrink-0 w-10">kcal</span>
+            </div>
+          </div>
+
+          <div class="border-t border-border-light pt-4">
+            <p class="text-[11px] font-medium text-muted uppercase tracking-widest font-body mb-4">Macronutrients</p>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <!-- Protein -->
+              <div>
+                <label for="goal-protein" class="block text-sm font-medium text-ink font-body mb-1.5">
+                  Protein
+                </label>
+                <div class="flex items-center gap-2">
+                  <input
+                    id="goal-protein"
+                    type="number"
+                    [ngModel]="goalsDraft().protein"
+                    (ngModelChange)="updateGoalField('protein', +$event)"
+                    min="0" max="500" step="5"
+                    class="flex-1 border border-border-light rounded-xl px-4 py-3 text-sm font-body text-ink outline-none focus:border-ink transition-colors"
+                  />
+                  <span class="text-sm text-muted font-body shrink-0">g</span>
+                </div>
+              </div>
+              <!-- Carbs -->
+              <div>
+                <label for="goal-carbs" class="block text-sm font-medium text-ink font-body mb-1.5">
+                  Carbohydrates
+                </label>
+                <div class="flex items-center gap-2">
+                  <input
+                    id="goal-carbs"
+                    type="number"
+                    [ngModel]="goalsDraft().carbs"
+                    (ngModelChange)="updateGoalField('carbs', +$event)"
+                    min="0" max="1000" step="10"
+                    class="flex-1 border border-border-light rounded-xl px-4 py-3 text-sm font-body text-ink outline-none focus:border-ink transition-colors"
+                  />
+                  <span class="text-sm text-muted font-body shrink-0">g</span>
+                </div>
+              </div>
+              <!-- Fat -->
+              <div>
+                <label for="goal-fat" class="block text-sm font-medium text-ink font-body mb-1.5">
+                  Fat
+                </label>
+                <div class="flex items-center gap-2">
+                  <input
+                    id="goal-fat"
+                    type="number"
+                    [ngModel]="goalsDraft().fat"
+                    (ngModelChange)="updateGoalField('fat', +$event)"
+                    min="0" max="300" step="5"
+                    class="flex-1 border border-border-light rounded-xl px-4 py-3 text-sm font-body text-ink outline-none focus:border-ink transition-colors"
+                  />
+                  <span class="text-sm text-muted font-body shrink-0">g</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Macro estimate -->
+          <div class="bg-soft-stone rounded-xl p-4 flex items-center justify-between gap-4">
+            <div>
+              <p class="text-[11px] text-muted font-body uppercase tracking-wide mb-0.5">Estimated from macros</p>
+              <p class="font-display text-ink text-xl font-medium">
+                {{ estimatedFromMacros() | number:'1.0-0' }} <span class="text-sm font-normal text-muted font-body">kcal</span>
+              </p>
+              <p class="text-muted text-[11px] font-body mt-0.5">4 kcal/g protein &amp; carbs · 9 kcal/g fat</p>
+            </div>
+            <div class="text-right shrink-0">
+              @if (estimatedFromMacros() !== goalsDraft().calories) {
+                <p class="text-[11px] text-muted font-body">
+                  {{ estimatedFromMacros() > goalsDraft().calories ? '+' : '' }}{{ estimatedFromMacros() - goalsDraft().calories | number:'1.0-0' }} kcal vs goal
+                </p>
+              }
+            </div>
+          </div>
+
+          <!-- Save button -->
+          <div class="flex items-center gap-3 pt-1">
+            <button
+              type="button"
+              (click)="saveGoals()"
+              class="px-6 py-3 bg-primary text-white text-sm font-medium rounded-full font-body hover:bg-ink transition-colors"
+            >
+              Save goals
+            </button>
+            @if (saved()) {
+              <div class="flex items-center gap-1.5 text-deep-green text-sm font-body">
+                <ng-icon name="heroCheckCircle" size="16" />
+                Saved!
+              </div>
+            }
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>

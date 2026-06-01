@@ -1,0 +1,1150 @@
+<div class="flex flex-1 flex-col overflow-hidden min-w-0">
+
+  <!-- Top bar -->
+  <div class="h-16 px-6 md:px-8 flex items-center justify-between border-b border-border-light bg-canvas shrink-0">
+    <div>
+      <h1 class="font-display text-ink text-xl font-medium tracking-tight">Programs</h1>
+      <p class="text-muted text-xs font-body">Build training splits · schedule them · watch them sync</p>
+    </div>
+
+    <!-- View toggle -->
+    <div class="flex items-center gap-1 p-1 bg-soft-stone rounded-xl border border-border-light">
+      <button
+        type="button"
+        [class]="activeView() === 'editor'
+          ? 'flex items-center gap-2 px-4 py-2 rounded-lg bg-canvas text-ink text-sm font-medium font-body shadow-sm border border-border-light transition-all'
+          : 'flex items-center gap-2 px-4 py-2 rounded-lg text-muted text-sm font-medium font-body hover:text-ink transition-all'"
+        (click)="activeView.set('editor')"
+      >
+        <ng-icon name="heroPencilSquare" size="15" />
+        Editor
+      </button>
+      <button
+        type="button"
+        [class]="activeView() === 'calendar'
+          ? 'flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium font-body shadow-sm transition-all'
+          : 'flex items-center gap-2 px-4 py-2 rounded-lg text-muted text-sm font-medium font-body hover:text-ink hover:bg-canvas/60 transition-all'"
+        (click)="activeView.set('calendar')"
+      >
+        <ng-icon name="heroCalendarDays" size="15" />
+        Schedule
+      </button>
+    </div>
+  </div>
+
+  <div class="flex-1 overflow-hidden flex">
+
+    <!-- Mobile program list overlay (editor only) -->
+    @if (showProgramList()) {
+      <div class="fixed inset-0 z-50 flex flex-col justify-end md:hidden" role="dialog" aria-modal="true" aria-label="Select program">
+        <button type="button" class="absolute inset-0 bg-ink/40 backdrop-blur-sm" (click)="showProgramList.set(false)" aria-label="Close"></button>
+        <div class="relative bg-canvas rounded-t-2xl max-h-[70vh] flex flex-col overflow-hidden z-10">
+          <div class="px-5 py-4 border-b border-border-light flex items-center justify-between shrink-0">
+            <span class="text-sm font-medium text-ink font-body">My Programs</span>
+            <button type="button" (click)="showNewProgram.set(true); showProgramList.set(false)" class="inline-flex items-center gap-1 text-primary text-xs font-body hover:text-ink transition-colors">
+              <ng-icon name="heroPlus" size="13" />
+              New
+            </button>
+          </div>
+          <nav class="overflow-y-auto p-3 flex flex-col gap-1" aria-label="Program list">
+            @for (program of programService.programs(); track program.id) {
+              <button type="button" (click)="selectProgram(program.id); showProgramList.set(false)"
+                class="w-full text-left px-3 py-3 rounded-xl flex items-center gap-3 transition-colors"
+                [class]="selectedProgram()?.id === program.id ? 'bg-soft-stone' : 'hover:bg-soft-stone/60'">
+                <span class="w-2.5 h-2.5 rounded-full shrink-0" [style.background]="programColors().get(program.id)"></span>
+                <div class="flex-1 min-w-0">
+                  <p class="text-ink text-sm font-medium font-body truncate">{{ program.name }}</p>
+                  <p class="text-muted text-[11px] font-body">{{ program.days.length }} days</p>
+                </div>
+                @if (program.isActive) {
+                  <span class="text-[10px] font-medium text-coral bg-coral/10 px-1.5 py-0.5 rounded-md font-body shrink-0">Active</span>
+                }
+              </button>
+            }
+          </nav>
+        </div>
+      </div>
+    }
+
+    <!-- ════════════════════════════════════════════════════════════════════ -->
+    <!-- EDITOR VIEW                                                          -->
+    <!-- ════════════════════════════════════════════════════════════════════ -->
+    @if (activeView() === 'editor') {
+
+      <!-- Left: Program list (desktop sidebar) -->
+      <aside class="hidden md:flex w-64 shrink-0 border-r border-border-light bg-canvas flex-col overflow-hidden">
+        <div class="px-4 py-3 border-b border-border-light flex items-center justify-between">
+          <span class="text-[11px] font-medium text-muted uppercase tracking-widest font-body">My Programs</span>
+          <button
+            type="button"
+            (click)="showNewProgram.set(true)"
+            class="w-6 h-6 flex items-center justify-center rounded-md hover:bg-soft-stone transition-colors text-muted hover:text-ink"
+            aria-label="Create new program"
+          >
+            <ng-icon name="heroPlus" size="14" />
+          </button>
+        </div>
+
+        @if (showNewProgram()) {
+          <div class="px-4 py-3 border-b border-border-light bg-soft-stone/50">
+            <input
+              type="text"
+              [ngModel]="newProgramName()"
+              (ngModelChange)="newProgramName.set($event)"
+              placeholder="Program name…"
+              class="w-full text-sm font-body border border-border-light rounded-lg px-3 py-2 outline-none focus:border-ink bg-canvas"
+              (keydown.enter)="createProgram()"
+              (keydown.escape)="showNewProgram.set(false)"
+            />
+            <div class="flex gap-2 mt-2">
+              <button type="button" (click)="createProgram()" class="flex-1 bg-primary text-white text-sm font-semibold py-2 rounded-lg font-body hover:bg-ink transition-colors shadow-sm">Create</button>
+              <button type="button" (click)="showNewProgram.set(false)" class="px-3 text-muted text-xs font-body hover:text-ink transition-colors">Cancel</button>
+            </div>
+          </div>
+        }
+
+        <nav class="flex-1 overflow-y-auto p-2" aria-label="Program list">
+          @for (program of programService.programs(); track program.id) {
+            <div
+              [class]="selectedProgram()?.id === program.id
+                ? 'rounded-xl bg-soft-stone mb-2 overflow-hidden'
+                : 'rounded-xl hover:bg-soft-stone/60 mb-2 overflow-hidden transition-colors'"
+            >
+              <button
+                type="button"
+                (click)="selectProgram(program.id)"
+                class="w-full text-left px-3 py-3 flex flex-col gap-1"
+              >
+                <div class="flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full shrink-0" [style.background]="programColors().get(program.id)"></span>
+                  <span class="text-ink text-sm font-medium font-body leading-snug flex-1 min-w-0 truncate">{{ program.name }}</span>
+                  @if (program.isActive) {
+                    <span class="text-[10px] font-medium text-coral bg-coral/10 px-1.5 py-0.5 rounded-md font-body shrink-0">Active</span>
+                  }
+                </div>
+                <div class="flex items-center gap-2 pl-4">
+                  <span class="text-muted text-[11px] font-body">{{ program.days.length }} day{{ program.days.length === 1 ? '' : 's' }}</span>
+                  @if (program.startDate) {
+                    <span class="text-muted text-[11px] font-body">· starts {{ program.startDate }}</span>
+                  }
+                </div>
+              </button>
+            </div>
+          }
+        </nav>
+      </aside>
+
+      <!-- Editor main area -->
+      @if (selectedProgram(); as program) {
+        <div class="flex-1 overflow-hidden flex flex-col">
+
+          <!-- Mobile: selected program strip -->
+          <div class="md:hidden px-3 py-2 border-b border-border-light bg-canvas flex items-center gap-2 shrink-0">
+            <span class="w-2 h-2 rounded-full shrink-0" [style.background]="programColors().get(program.id)"></span>
+            <span class="text-ink text-sm font-medium font-body flex-1 truncate min-w-0">{{ program.name }}</span>
+            @if (program.isActive) {
+              <span class="text-[10px] font-medium text-deep-green bg-pale-green px-2 py-0.5 rounded-full font-body shrink-0">Active</span>
+            }
+            <button type="button" (click)="showProgramList.set(true)"
+              class="text-primary text-xs font-body font-medium shrink-0 px-2 py-1 rounded-lg hover:bg-soft-stone transition-colors">
+              Switch
+            </button>
+          </div>
+
+          <!-- Program header (desktop only) -->
+          <div class="hidden md:flex px-6 py-4 border-b border-border-light items-center justify-between shrink-0">
+            <div class="flex items-center gap-3">
+              <span class="w-3 h-3 rounded-full shrink-0" [style.background]="programColors().get(program.id)"></span>
+              <div>
+                <h2 class="font-display text-ink text-lg font-medium tracking-tight">{{ program.name }}</h2>
+                @if (program.description) {
+                  <p class="text-muted text-xs font-body mt-0.5">{{ program.description }}</p>
+                }
+              </div>
+            </div>
+            @if (program.isActive) {
+              <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-pale-green text-deep-green text-xs font-medium rounded-full font-body">
+                <span class="w-1.5 h-1.5 rounded-full bg-deep-green/60"></span>
+                Active
+              </span>
+            }
+          </div>
+
+          <!-- Mobile: horizontal day tabs -->
+          <div class="md:hidden flex items-center gap-2 px-3 py-2 border-b border-border-light overflow-x-auto shrink-0">
+            @for (day of program.days; track day.id) {
+              @let isSelected = selectedDay()?.id === day.id;
+              @let isRenaming = renamingDayId() === day.id;
+
+              @if (isRenaming) {
+                <!-- Inline rename chip -->
+                <div class="shrink-0 flex items-center gap-1 bg-canvas border border-ink rounded-full px-2 py-1">
+                  <input
+                    type="text"
+                    [ngModel]="renameDraft()"
+                    (ngModelChange)="renameDraft.set($event)"
+                    (keydown.enter)="saveRename(day.id)"
+                    (keydown.escape)="cancelRename()"
+                    class="w-24 text-xs font-body text-ink bg-transparent outline-none"
+                    autofocus
+                    aria-label="Rename day"
+                  />
+                  <button type="button" (click)="saveRename(day.id)" class="text-primary shrink-0" aria-label="Save">
+                    <ng-icon name="heroCheck" size="12" />
+                  </button>
+                  <button type="button" (click)="cancelRename()" class="text-muted shrink-0" aria-label="Cancel">
+                    <ng-icon name="heroXMark" size="12" />
+                  </button>
+                </div>
+              } @else {
+                <button
+                  type="button"
+                  (click)="isSelected ? startRename(day) : selectDay(day.id)"
+                  class="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium font-body transition-colors"
+                  [class]="isSelected ? 'bg-primary text-white' : 'bg-soft-stone text-muted hover:text-ink'"
+                  [attr.aria-label]="isSelected ? 'Rename ' + day.name : 'Select ' + day.name"
+                >
+                  @if (day.isRest) { 💤 } @else {
+                    <span class="w-1.5 h-1.5 rounded-full shrink-0" [class]="isSelected ? 'bg-white/60' : 'bg-coral/60'"></span>
+                  }
+                  {{ day.name }}
+                  @if (isSelected) {
+                    <ng-icon name="heroPencilSquare" size="10" class="opacity-60" />
+                  }
+                </button>
+              }
+            }
+            <button type="button" (click)="addDay()"
+              class="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium font-body text-muted border border-dashed border-hairline hover:border-ink hover:text-ink transition-colors">
+              <ng-icon name="heroPlus" size="11" />
+              Add
+            </button>
+          </div>
+
+          <div class="flex-1 overflow-hidden flex">
+
+            <!-- Day tabs (desktop) -->
+            <div class="hidden md:flex w-48 shrink-0 border-r border-border-light flex-col overflow-hidden">
+              <div class="flex-1 overflow-y-auto p-2">
+                @for (day of program.days; track day.id) {
+                  @let isSelected = selectedDay()?.id === day.id;
+                  @let isRenaming = renamingDayId() === day.id;
+
+                  @if (isRenaming) {
+                    <!-- Inline rename input -->
+                    <div class="mb-1 px-2 py-1.5 rounded-lg bg-soft-stone flex items-center gap-1.5">
+                      <input
+                        type="text"
+                        [ngModel]="renameDraft()"
+                        (ngModelChange)="renameDraft.set($event)"
+                        (keydown.enter)="saveRename(day.id)"
+                        (keydown.escape)="cancelRename()"
+                        class="flex-1 min-w-0 text-sm font-body text-ink bg-canvas border border-border-light rounded-md px-2 py-1 outline-none focus:border-ink"
+                        autofocus
+                        aria-label="Rename day"
+                      />
+                      <button type="button" (click)="saveRename(day.id)" class="text-primary hover:text-ink shrink-0" aria-label="Save name">
+                        <ng-icon name="heroCheck" size="14" />
+                      </button>
+                      <button type="button" (click)="cancelRename()" class="text-muted hover:text-ink shrink-0" aria-label="Cancel">
+                        <ng-icon name="heroXMark" size="14" />
+                      </button>
+                    </div>
+                  } @else {
+                    <div
+                      class="mb-1 rounded-lg flex items-center gap-1 group"
+                      [class]="isSelected ? 'bg-primary text-white' : 'hover:bg-soft-stone text-ink transition-colors'"
+                    >
+                      <button
+                        type="button"
+                        (click)="selectDay(day.id)"
+                        class="flex-1 text-left px-3 py-2.5 flex items-center gap-2 min-w-0"
+                      >
+                        @if (day.isRest) {
+                          <span [class]="isSelected ? 'w-1.5 h-1.5 rounded-full bg-white/30 shrink-0' : 'w-1.5 h-1.5 rounded-full bg-hairline shrink-0'"></span>
+                        } @else {
+                          <span [class]="isSelected ? 'w-1.5 h-1.5 rounded-full bg-coral shrink-0' : 'w-1.5 h-1.5 rounded-full bg-coral/50 shrink-0'"></span>
+                        }
+                        <div class="flex flex-col min-w-0">
+                          <span class="text-sm font-medium font-body truncate">{{ day.name }}</span>
+                          @if (day.isRest) {
+                            <span [class]="isSelected ? 'text-[10px] text-white/50 font-body' : 'text-[10px] text-muted font-body'">Rest day 💤</span>
+                          } @else {
+                            <span [class]="isSelected ? 'text-[10px] text-white/50 font-body' : 'text-[10px] text-muted font-body'">
+                              {{ day.exercises.length }} exercise{{ day.exercises.length === 1 ? '' : 's' }}
+                            </span>
+                          }
+                        </div>
+                      </button>
+                      <!-- Rename pencil — visible on hover -->
+                      <button
+                        type="button"
+                        (click)="startRename(day)"
+                        class="pr-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                        [class]="isSelected ? 'text-white/60 hover:text-white' : 'text-muted hover:text-ink'"
+                        aria-label="Rename day"
+                      >
+                        <ng-icon name="heroPencilSquare" size="12" />
+                      </button>
+                    </div>
+                  }
+                }
+              </div>
+              <div class="p-2 border-t border-border-light">
+                <button
+                  type="button"
+                  (click)="addDay()"
+                  class="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-dashed border-hairline text-muted text-xs font-body hover:border-ink hover:text-ink transition-colors"
+                >
+                  <ng-icon name="heroPlus" size="12" />
+                  Add day
+                </button>
+              </div>
+            </div>
+
+            <!-- Exercise list for selected day -->
+            @if (selectedDay(); as day) {
+              <div class="flex-1 overflow-y-auto p-4 md:p-6">
+                <div class="flex items-center justify-between mb-4">
+                  <div class="flex items-center gap-3">
+                    <h3 class="font-display text-ink text-lg font-medium">{{ day.name }}</h3>
+                    <button
+                      type="button"
+                      (click)="toggleRest(day.id)"
+                      class="px-2.5 py-1 rounded-full bg-soft-stone text-muted text-[11px] font-medium font-body hover:bg-hairline transition-colors"
+                    >
+                      {{ day.isRest ? 'Undo rest day' : 'Mark as rest' }}
+                    </button>
+                  </div>
+                  @if (!day.isRest) {
+                    <button
+                      type="button"
+                      (click)="showAddExercise.set(!showAddExercise())"
+                      class="inline-flex items-center gap-1.5 px-3 py-2 bg-primary text-white text-xs font-medium rounded-full font-body hover:bg-ink transition-colors"
+                    >
+                      <ng-icon name="heroPlus" size="12" />
+                      Add exercise
+                    </button>
+                  }
+                </div>
+
+                @if (day.isRest) {
+                  <div class="flex flex-col items-center justify-center py-16 text-center bg-soft-stone/40 rounded-2xl border-2 border-dashed border-hairline">
+                    <div class="w-16 h-16 rounded-2xl bg-hairline/60 flex items-center justify-center mb-4">
+                      <span class="text-3xl" aria-hidden="true">💤</span>
+                    </div>
+                    <p class="font-display text-ink text-xl font-medium mb-1">Rest day</p>
+                    <p class="text-muted text-sm font-body max-w-xs">Recovery is where the growth happens.</p>
+                    <button
+                      type="button"
+                      (click)="toggleRest(day.id)"
+                      class="mt-5 px-4 py-2 border border-hairline text-muted text-xs font-body rounded-full hover:border-ink hover:text-ink transition-colors"
+                    >
+                      Convert to training day
+                    </button>
+                  </div>
+                } @else {
+
+                  <!-- Exercise picker -->
+                  @if (showAddExercise()) {
+                    <div class="mb-5 border border-border-light rounded-xl overflow-hidden">
+                      <div class="px-4 py-3 bg-soft-stone/50 border-b border-border-light flex items-center gap-2">
+                        <input
+                          type="search"
+                          [ngModel]="exerciseSearch()"
+                          (ngModelChange)="exerciseSearch.set($event)"
+                          placeholder="Search exercises…"
+                          class="flex-1 text-sm font-body bg-transparent outline-none placeholder:text-muted"
+                          aria-label="Search exercises"
+                        />
+                        <button type="button" (click)="showAddExercise.set(false)" class="text-muted hover:text-ink transition-colors" aria-label="Close">
+                          <ng-icon name="heroXMark" size="16" />
+                        </button>
+                      </div>
+                      <div class="max-h-60 overflow-y-auto divide-y divide-border-light">
+                        @for (exercise of filteredExercises(); track exercise.id) {
+                          <button
+                            type="button"
+                            (click)="addExerciseToDay(exercise)"
+                            class="w-full text-left px-4 py-3 hover:bg-soft-stone/50 transition-colors flex items-center justify-between"
+                          >
+                            <div>
+                              <p class="text-ink text-sm font-medium font-body">{{ exercise.name }}</p>
+                              <p class="text-muted text-[11px] font-body">{{ exercise.muscleGroups.join(' · ') }}</p>
+                            </div>
+                            <span class="text-[10px] font-medium px-2 py-0.5 rounded-full bg-soft-stone text-body-muted font-body capitalize">{{ exercise.category }}</span>
+                          </button>
+                        } @empty {
+                          <p class="px-4 py-6 text-center text-muted text-sm font-body">No exercises match "{{ exerciseSearch() }}"</p>
+                        }
+                      </div>
+                    </div>
+                  }
+
+                  <!-- Exercise rows -->
+                  @if (day.exercises.length) {
+                    <div class="flex flex-col gap-2">
+                      @for (ex of day.exercises; track ex.exerciseId) {
+                        @if (editingExerciseId() === ex.exerciseId) {
+                          <!-- Edit mode -->
+                          <div class="border border-ink/20 bg-soft-stone/40 rounded-xl overflow-hidden">
+                            <div class="flex items-center gap-3 px-4 pt-3.5 pb-2">
+                              <div class="w-8 h-8 rounded-lg bg-soft-stone flex items-center justify-center shrink-0" aria-hidden="true">
+                                <ng-icon name="heroBolt" class="text-coral" size="14" />
+                              </div>
+                              <div class="flex-1 min-w-0">
+                                <p class="text-ink text-sm font-medium font-body">{{ ex.exercise.name }}</p>
+                                <p class="text-muted text-[11px] font-body">{{ ex.exercise.muscleGroups.join(' · ') }}</p>
+                              </div>
+                            </div>
+
+                            <div class="px-4 pb-3 grid grid-cols-2 gap-3">
+                              <div>
+                                <label [for]="'sets-' + ex.exerciseId" class="block text-[10px] font-medium text-muted uppercase tracking-wide font-body mb-1">Sets</label>
+                                <input
+                                  [id]="'sets-' + ex.exerciseId"
+                                  type="number"
+                                  [ngModel]="editDraft().sets"
+                                  (ngModelChange)="editDraft.update(d => ({ ...d, sets: +$event }))"
+                                  min="1" max="20"
+                                  class="w-full border border-border-light rounded-lg px-2.5 py-2.5 text-sm font-body text-ink outline-none focus:border-ink bg-canvas text-center"
+                                />
+                              </div>
+                              <div>
+                                <label [for]="'reps-' + ex.exerciseId" class="block text-[10px] font-medium text-muted uppercase tracking-wide font-body mb-1">Reps</label>
+                                <input
+                                  [id]="'reps-' + ex.exerciseId"
+                                  type="text"
+                                  [ngModel]="editDraft().reps"
+                                  (ngModelChange)="editDraft.update(d => ({ ...d, reps: $event }))"
+                                  placeholder="e.g. 5, 8-12, max"
+                                  class="w-full border border-border-light rounded-lg px-2.5 py-2.5 text-sm font-body text-ink outline-none focus:border-ink bg-canvas text-center"
+                                />
+                              </div>
+                            </div>
+
+                            <div class="px-4 pb-3.5 flex items-center gap-2">
+                              <button
+                                type="button"
+                                (click)="saveEdit(ex.exerciseId)"
+                                class="flex-1 py-2.5 bg-primary text-white text-sm font-semibold rounded-lg font-body hover:bg-ink transition-colors shadow-sm"
+                              >
+                                Save
+                              </button>
+                              <button
+                                type="button"
+                                (click)="cancelEdit()"
+                                class="px-4 py-2 border border-border-light text-muted text-xs font-body rounded-lg hover:text-ink transition-colors"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                (click)="removeExercise(ex.exerciseId)"
+                                class="px-3 py-2 text-muted hover:text-error transition-colors"
+                                [attr.aria-label]="'Remove ' + ex.exercise.name"
+                              >
+                                <ng-icon name="heroTrash" size="14" />
+                              </button>
+                            </div>
+                          </div>
+                        } @else {
+                          <!-- View mode -->
+                          <div class="flex items-center gap-2.5 px-3 py-3 bg-canvas border border-border-light rounded-xl hover:border-hairline group transition-colors"
+                            (click)="startEdit(ex)" role="button" tabindex="0" [attr.aria-label]="'Edit ' + ex.exercise.name"
+                            (keydown.enter)="startEdit(ex)">
+                            <div class="w-7 h-7 rounded-lg bg-soft-stone flex items-center justify-center shrink-0" aria-hidden="true">
+                              <ng-icon name="heroBolt" class="text-body-muted" size="12" />
+                            </div>
+                            <div class="flex-1 min-w-0">
+                              <p class="text-ink text-sm font-medium font-body leading-tight">{{ ex.exercise.name }}</p>
+                              <p class="text-muted text-[10px] font-body truncate">{{ ex.exercise.muscleGroups.join(' · ') }}</p>
+                            </div>
+                            <div class="flex items-center gap-1.5 text-[11px] text-muted font-body shrink-0">
+                              <span class="bg-soft-stone px-2 py-0.5 rounded-md">{{ ex.sets }}×{{ ex.reps }}</span>
+                            </div>
+                            <button
+                              type="button"
+                              (click)="removeExercise(ex.exerciseId); $event.stopPropagation()"
+                              class="text-muted hover:text-error transition-colors md:opacity-0 md:group-hover:opacity-100"
+                              [attr.aria-label]="'Remove ' + ex.exercise.name"
+                            >
+                              <ng-icon name="heroTrash" size="14" />
+                            </button>
+                          </div>
+                        }
+                      }
+                    </div>
+                  } @else if (!showAddExercise()) {
+                    <div class="flex flex-col items-center justify-center py-16 text-center border-2 border-dashed border-border-light rounded-2xl">
+                      <ng-icon name="heroBolt" class="text-hairline mb-3" size="32" />
+                      <p class="text-ink font-medium font-body">No exercises yet</p>
+                      <p class="text-muted text-sm font-body mt-1 mb-4">Add exercises to build this day's training.</p>
+                      <button
+                        type="button"
+                        (click)="showAddExercise.set(true)"
+                        class="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-xs font-medium rounded-full font-body hover:bg-ink transition-colors"
+                      >
+                        <ng-icon name="heroPlus" size="12" />
+                        Add first exercise
+                      </button>
+                    </div>
+                  }
+                }
+              </div>
+            }
+          </div>
+        </div>
+      } @else {
+        <div class="flex-1 flex flex-col items-center justify-center text-center p-8">
+          <ng-icon name="heroCalendarDays" class="text-hairline mb-4" size="48" />
+          <h2 class="font-display text-ink text-xl font-medium mb-2">No program selected</h2>
+          <p class="text-muted text-sm font-body mb-6">Create a program or select one from the list.</p>
+          <button
+            type="button"
+            (click)="showNewProgram.set(true)"
+            class="inline-flex items-center gap-2 px-5 py-3 bg-primary text-white text-sm font-medium rounded-full font-body hover:bg-ink transition-colors"
+          >
+            <ng-icon name="heroPlus" size="16" />
+            Create program
+          </button>
+        </div>
+      }
+
+    } @else {
+
+      <!-- ════════════════════════════════════════════════════════════════ -->
+      <!-- SCHEDULE / CALENDAR VIEW                                         -->
+      <!-- ════════════════════════════════════════════════════════════════ -->
+
+      <!-- Cell template for drag-drop zones -->
+      <ng-template #cellTpl let-day="day" let-locale="locale">
+        <div
+          class="flex flex-col h-full relative"
+          [class]="isDragOver(day.date) ? 'bg-primary/10' : ''"
+          (dragover)="onCalendarDragOver($event, day.date)"
+          (dragleave)="onCalendarDragLeave($event, $any($event.currentTarget))"
+          (drop)="onCalendarDrop($event, day.date)"
+        >
+          @if (isDragOver(day.date)) {
+            <div class="absolute inset-0 ring-2 ring-inset ring-primary/50 pointer-events-none z-10"></div>
+          }
+
+          <!-- Day number -->
+          <div class="cal-cell-top">
+            @if (day.isToday) {
+              <span class="cal-day-number w-6 h-6 flex items-center justify-center rounded-full bg-coral text-white font-semibold text-xs leading-none">{{ day.date | date:'d' }}</span>
+            } @else {
+              <span class="cal-day-number">{{ day.date | date:'d' }}</span>
+            }
+          </div>
+
+          <!-- Events — centered in remaining space, stack vertically -->
+          <div class="flex-1 flex flex-col items-stretch justify-center gap-0.5 px-1 py-1">
+            @for (event of day.events; track event.start.getTime()) {
+              @if (event.title !== 'Rest') {
+                <button
+                  type="button"
+                  class="w-full text-left text-[10px] leading-tight font-medium font-body px-1.5 py-0.5 rounded truncate transition-opacity hover:opacity-80"
+                  [style.background]="event.color?.secondary"
+                  [style.color]="event.color?.primary"
+                  [attr.aria-label]="event.title"
+                  (click)="onEventClicked({ event: event }); $event.stopPropagation()"
+                >{{ event.title }}</button>
+              }
+            }
+          </div>
+        </div>
+      </ng-template>
+
+      <div class="flex-1 overflow-hidden flex">
+
+        <!-- Left: Scheduling sidebar (desktop) -->
+        <aside class="hidden md:flex w-64 shrink-0 border-r border-border-light bg-canvas flex-col overflow-hidden">
+          <div class="px-4 py-3 border-b border-border-light flex items-center justify-between gap-2">
+            <div>
+              <p class="text-[11px] font-medium text-muted uppercase tracking-widest font-body">Programs</p>
+              <p class="text-[10px] text-muted font-body mt-0.5">Drag days onto calendar</p>
+            </div>
+            <button
+              type="button"
+              (click)="showICalModal.set(true)"
+              class="shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg bg-soft-stone text-muted text-[10px] font-body font-medium hover:text-ink hover:bg-hairline transition-colors"
+              aria-label="Subscribe to calendar"
+              title="Subscribe to calendar (iCal)"
+            >
+              <ng-icon name="heroCalendarDays" size="11" />
+              iCal
+            </button>
+          </div>
+
+          <nav class="flex-1 overflow-y-auto p-2" aria-label="Programs for scheduling">
+            @for (program of programService.programs(); track program.id) {
+              @let cycleLocked = cycleLockedProgramIds().has(program.id);
+              @let draggingLocked = schedulingProgramId() !== null && schedulingProgramId() !== program.id;
+              @let fullyLocked = cycleLocked || draggingLocked;
+              @let scheduledCount = scheduledDayCountForProgram(program.id);
+              @let totalTrainingDays = program.days.filter(d => !d.isRest).length;
+              <div
+                class="rounded-xl mb-2 overflow-hidden border transition-all"
+                [class]="fullyLocked
+                  ? 'border-border-light opacity-50'
+                  : expandedCalProgramId() === program.id
+                    ? 'border-ink/20 bg-soft-stone'
+                    : 'border-border-light hover:bg-soft-stone/50'"
+              >
+                <!-- Program header -->
+                <button
+                  type="button"
+                  (click)="!fullyLocked && toggleCalProgram(program.id)"
+                  class="w-full text-left px-3 py-3 flex items-center gap-2"
+                  [class]="fullyLocked ? 'cursor-default' : ''"
+                  [attr.aria-expanded]="expandedCalProgramId() === program.id"
+                >
+                  <span class="w-2 h-2 rounded-full shrink-0" [style.background]="programColors().get(program.id)"></span>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-ink text-sm font-medium font-body truncate">{{ program.name }}</p>
+                    <p class="text-muted text-[10px] font-body">
+                      @if (cycleLocked) { Cycle scheduled · locked }
+                      @else if (scheduledCount > 0 && scheduledCount < totalTrainingDays) {
+                        {{ scheduledCount }}/{{ totalTrainingDays }} days scheduled
+                      } @else if (scheduledCount > 0) { All days scheduled }
+                      @else { {{ program.days.length }} days }
+                    </p>
+                  </div>
+                  @if (program.isActive) {
+                    <span class="text-[10px] font-medium text-coral bg-coral/10 px-1.5 py-0.5 rounded-md font-body shrink-0">Active</span>
+                  }
+                  @if (!fullyLocked) {
+                    <ng-icon
+                      name="heroChevronRight"
+                      size="12"
+                      class="text-muted shrink-0 transition-transform"
+                      [style.transform]="expandedCalProgramId() === program.id ? 'rotate(90deg)' : 'none'"
+                    />
+                  }
+                </button>
+
+                <!-- Day chips (expanded) — each day is the draggable unit -->
+                @if (expandedCalProgramId() === program.id && !fullyLocked) {
+                  <div class="px-2 pb-2 flex flex-col gap-2">
+                    @for (day of program.days; track day.id) {
+                      @if (!day.isRest) {
+                        @let crossed = isDayCrossed(day.id);
+                        <div
+                          class="rounded-lg border select-none transition-all overflow-hidden"
+                          [class]="crossed
+                            ? 'border-border-light bg-canvas/60 opacity-60 cursor-default'
+                            : draggingDayId() === day.id
+                              ? 'border-primary/40 bg-primary/5 cursor-grabbing'
+                              : 'border-border-light bg-canvas hover:border-ink/30 cursor-grab'"
+                          [attr.draggable]="!crossed"
+                          (dragstart)="!crossed && onDayDragStart($event, day.id, program.id)"
+                          (dragend)="onDayDragEnd()"
+                        >
+                          <!-- Day header -->
+                          <div class="flex items-center gap-2 px-2.5 pt-2 pb-1.5">
+                            <span class="text-muted text-[10px] font-body" aria-hidden="true">⠿</span>
+                            <span
+                              class="text-xs font-medium font-body flex-1 min-w-0 truncate"
+                              [class]="crossed ? 'line-through text-muted' : 'text-ink'"
+                            >{{ day.name }}</span>
+                            @if (crossed) {
+                              <span class="text-[9px] text-primary font-body shrink-0">{{ pendingScheduleLabel(day.id) }}</span>
+                            } @else {
+                              <span class="text-[9px] text-muted font-body shrink-0">{{ day.exercises.length }} ex</span>
+                            }
+                          </div>
+                          <!-- Exercise list under day -->
+                          @if (day.exercises.length) {
+                            <div class="px-2.5 pb-2 flex flex-col gap-0.5">
+                              @for (ex of day.exercises; track ex.exerciseId) {
+                                <div class="flex items-center gap-1.5 py-0.5">
+                                  <ng-icon name="heroBolt" class="text-muted/60 shrink-0" size="9" />
+                                  <span class="text-[10px] text-muted font-body truncate">
+                                    {{ ex.exercise.name }}
+                                    <span class="opacity-60">· {{ ex.sets }}×{{ ex.reps }}</span>
+                                  </span>
+                                </div>
+                              }
+                            </div>
+                          }
+                        </div>
+                      }
+                    }
+                    @if (!program.days.some(d => !d.isRest)) {
+                      <p class="text-[11px] text-muted font-body text-center py-2">No training days.</p>
+                    }
+                  </div>
+                }
+              </div>
+            }
+          </nav>
+
+          <!-- Save / Reset -->
+          @if (schedulingProgramId()) {
+            <div class="p-3 border-t border-border-light flex flex-col gap-2 shrink-0">
+              <p class="text-[10px] text-muted font-body text-center">
+                {{ crossedDayIds().size }} / {{ schedulingProgramDays().length }} days placed
+              </p>
+              <button
+                type="button"
+                (click)="saveSchedule()"
+                [disabled]="!allDaysScheduled()"
+                class="w-full py-3 text-sm font-semibold rounded-xl font-body transition-all"
+                [class]="allDaysScheduled()
+                  ? 'bg-primary text-white hover:bg-ink shadow-md hover:shadow-lg'
+                  : 'bg-primary/20 text-primary/40 cursor-not-allowed'"
+              >
+                Save schedule
+              </button>
+              <button
+                type="button"
+                (click)="resetScheduling()"
+                class="w-full py-1.5 text-muted text-xs font-body hover:text-error transition-colors"
+              >
+                Reset
+              </button>
+            </div>
+          }
+        </aside>
+
+        <!-- Calendar column -->
+        <div class="flex-1 overflow-hidden flex flex-col min-w-0">
+
+          <!-- Mobile: top bar with iCal + Schedule button -->
+          <div class="md:hidden flex items-center gap-2 px-3 py-2 border-b border-border-light bg-canvas shrink-0">
+            <span class="text-xs font-medium text-ink font-body flex-1">Schedule</span>
+            <button
+              type="button"
+              (click)="showMobileScheduler.set(!showMobileScheduler())"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white text-xs font-medium rounded-full font-body"
+            >
+              <ng-icon name="heroPlus" size="12" />
+              Add
+            </button>
+            <button
+              type="button"
+              (click)="showICalModal.set(true)"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-soft-stone text-muted text-xs font-medium rounded-full font-body"
+              aria-label="Subscribe to calendar"
+            >
+              <ng-icon name="heroCalendarDays" size="12" />
+              iCal
+            </button>
+          </div>
+
+          <!-- Mobile scheduling panel -->
+          @if (showMobileScheduler()) {
+            <div class="md:hidden border-b border-border-light bg-canvas shrink-0 overflow-hidden">
+              <div class="px-3 py-2 flex items-center justify-between">
+                <p class="text-xs font-medium text-ink font-body">Tap a day to schedule it</p>
+                <button type="button" (click)="showMobileScheduler.set(false)" class="text-muted hover:text-ink" aria-label="Close">
+                  <ng-icon name="heroXMark" size="15" />
+                </button>
+              </div>
+              <div class="overflow-y-auto max-h-52 px-3 pb-3 flex flex-col gap-2">
+                @for (program of programService.programs(); track program.id) {
+                  @let cycleLocked = cycleLockedProgramIds().has(program.id);
+                  @if (!cycleLocked) {
+                    <div class="rounded-xl border border-border-light overflow-hidden">
+                      <div class="px-3 py-2 bg-soft-stone/40 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full shrink-0" [style.background]="programColors().get(program.id)"></span>
+                        <span class="text-xs font-medium text-ink font-body flex-1 truncate">{{ program.name }}</span>
+                      </div>
+                      <div class="px-3 py-2 flex flex-col gap-1.5">
+                        @for (day of program.days; track day.id) {
+                          @if (!day.isRest) {
+                            @let crossed = isDayCrossed(day.id);
+                            <div class="flex items-center gap-2">
+                              <span class="flex-1 text-xs font-body truncate" [class]="crossed ? 'text-muted line-through' : 'text-ink'">{{ day.name }}</span>
+                              @if (crossed) {
+                                <span class="text-[10px] text-primary font-body shrink-0">{{ pendingScheduleLabel(day.id) }}</span>
+                              } @else {
+                                <button
+                                  type="button"
+                                  (click)="openMobileDaySchedule(day.id, program.id)"
+                                  class="shrink-0 text-[11px] font-medium text-primary font-body px-2 py-0.5 rounded-full border border-primary/30 hover:bg-primary/10 transition-colors"
+                                >
+                                  + Schedule
+                                </button>
+                              }
+                            </div>
+                          }
+                        }
+                      </div>
+                    </div>
+                  }
+                }
+              </div>
+              <!-- Mobile save -->
+              @if (schedulingProgramId()) {
+                <div class="px-3 pb-3 flex gap-2">
+                  <button
+                    type="button"
+                    (click)="saveSchedule()"
+                    [disabled]="!allDaysScheduled()"
+                    class="flex-1 py-2.5 text-sm font-semibold rounded-xl font-body transition-all"
+                    [class]="allDaysScheduled() ? 'bg-primary text-white shadow-md' : 'bg-primary/20 text-primary/40 cursor-not-allowed'"
+                  >Save schedule</button>
+                  <button type="button" (click)="resetScheduling()" class="px-3 text-muted text-xs font-body hover:text-error transition-colors">Reset</button>
+                </div>
+              }
+            </div>
+          }
+
+          <!-- Scrollable area — everything lives here -->
+          <div class="flex-1 overflow-y-auto p-3 md:p-6 flex flex-col gap-4">
+
+            <!-- Month nav -->
+            <div class="flex items-center justify-between">
+              <h2 class="font-display text-ink text-xl font-medium tracking-tight">{{ calendarTitle() }}</h2>
+              <div class="flex items-center gap-1">
+                <button type="button" (click)="prevMonth()" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-soft-stone transition-colors text-muted hover:text-ink" aria-label="Previous month">
+                  <ng-icon name="heroChevronLeft" size="16" />
+                </button>
+                <button type="button" (click)="calendarDate.set(today())" class="px-3 py-1.5 text-xs font-medium font-body text-muted hover:text-ink hover:bg-soft-stone rounded-lg transition-colors">Today</button>
+                <button type="button" (click)="nextMonth()" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-soft-stone transition-colors text-muted hover:text-ink" aria-label="Next month">
+                  <ng-icon name="heroChevronRight" size="16" />
+                </button>
+              </div>
+            </div>
+
+            <!-- Legend -->
+            <div class="flex flex-wrap items-center gap-3">
+              @for (program of programService.programs(); track program.id) {
+                @if (program.startDate) {
+                  <div class="flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full shrink-0" [style.background]="programColors().get(program.id)"></span>
+                    <span class="text-xs text-muted font-body truncate max-w-36">{{ program.name }}</span>
+                  </div>
+                }
+              }
+              @if (draggingDayId()) {
+                <span class="text-[11px] text-primary font-body font-medium animate-pulse ml-auto">Drop on a day to schedule</span>
+              }
+            </div>
+
+            <!-- Calendar grid -->
+            <div class="overflow-x-auto -mx-3 md:mx-0 px-3 md:px-0">
+            <div class="cal-container rounded-2xl border border-border-light overflow-hidden shadow-sm min-w-[600px] md:min-w-0">
+              <mwl-calendar-month-view
+                [viewDate]="calendarDate()"
+                [events]="calendarEvents()"
+                [weekStartsOn]="1"
+                [cellTemplate]="cellTpl"
+                (dayClicked)="onDayClicked($event)"
+                (eventClicked)="onEventClicked($event)"
+              ></mwl-calendar-month-view>
+            </div>
+            </div> <!-- end overflow-x-auto wrapper -->
+
+          <!-- ── Detail panel — in scroll flow, right under calendar ── -->
+          @if (bottomPanelOpen()) {
+          <div
+            class="rounded-2xl border border-border-light bg-canvas overflow-hidden shadow-sm max-h-[60vh] overflow-y-auto"
+            aria-label="Day detail"
+          >
+            <!-- Panel header -->
+            <div class="sticky top-0 z-10 bg-canvas px-5 py-3 border-b border-border-light flex items-center justify-between">
+              <p class="text-[11px] font-medium text-muted uppercase tracking-widest font-body">
+                {{ selectedDate() | date:'EEEE, MMMM d' }}
+              </p>
+              <button type="button" (click)="closeBottomPanel()" class="text-muted hover:text-ink transition-colors" aria-label="Close">
+                <ng-icon name="heroXMark" size="18" />
+              </button>
+            </div>
+
+            @if (selectedDayItems().length === 0) {
+              <div class="px-5 py-6 text-center">
+                <p class="text-muted text-sm font-body">No workouts scheduled for this day.</p>
+              </div>
+            }
+
+            <!-- One card per workout item -->
+            @for (item of selectedDayItems(); track item.title + item.programId; let last = $last) {
+              <div [class]="last ? 'flex flex-col' : 'flex flex-col border-b border-border-light'">
+                <div class="px-5 py-3 flex items-center gap-3">
+                  <div class="w-2 h-2 rounded-full shrink-0" [style.background]="programColors().get(item.programId)"></div>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-[10px] font-medium text-muted uppercase tracking-widest font-body leading-none">{{ item.programName }}</p>
+                    <h3 class="font-display text-ink text-base font-medium mt-0.5 leading-tight">{{ item.title }}</h3>
+                  </div>
+                  <div class="flex items-center gap-2 shrink-0">
+                    @if (item.scheduleEvent) {
+                      <button
+                        type="button"
+                        (click)="requestDelete(item.scheduleEvent)"
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-error/10 text-error text-xs font-medium rounded-full font-body hover:bg-error/20 transition-colors"
+                      >
+                        <ng-icon name="heroTrash" size="12" />
+                        Delete
+                      </button>
+                    } @else {
+                      <button
+                        type="button"
+                        (click)="jumpToEditorDay(item.programId, item.dayId)"
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-soft-stone text-ink text-xs font-medium rounded-full font-body hover:bg-hairline transition-colors"
+                      >
+                        <ng-icon name="heroPencilSquare" size="12" />
+                        Edit
+                      </button>
+                    }
+                  </div>
+                </div>
+                <div class="px-5 pb-4 overflow-x-auto">
+                  @if (item.exercises.length) {
+                    <div class="flex items-start gap-3 pb-1">
+                      @for (ex of item.exercises; track ex.exerciseId) {
+                        <div class="shrink-0 flex flex-col gap-1 px-3 py-2.5 bg-soft-stone rounded-xl min-w-32 max-w-44">
+                          <div class="w-6 h-6 rounded-md bg-hairline/60 flex items-center justify-center" aria-hidden="true">
+                            <ng-icon name="heroBolt" class="text-muted" size="11" />
+                          </div>
+                          <p class="text-ink text-xs font-medium font-body leading-tight">{{ ex.exercise.name }}</p>
+                          <p class="text-muted text-[10px] font-body">{{ ex.sets }} sets · {{ ex.reps }} reps</p>
+                          <p class="text-muted/60 text-[9px] font-body truncate">{{ ex.exercise.muscleGroups.join(', ') }}</p>
+                        </div>
+                      }
+                    </div>
+                  } @else {
+                    <p class="text-muted text-sm font-body">No exercises added yet.</p>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+          } <!-- end @if bottomPanelOpen -->
+
+          </div> <!-- end scroll area -->
+        </div> <!-- end calendar column -->
+      </div> <!-- end flex row -->
+    } <!-- end @else calendar view -->
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- DELETE CONFIRMATION MODAL                                                   -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+@if (deleteTarget(); as target) {
+  <div
+    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40 backdrop-blur-sm"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="del-modal-title"
+    (click)="cancelDelete()"
+  >
+    <div
+      class="bg-canvas rounded-2xl border border-border-light shadow-xl w-full max-w-sm p-6 flex flex-col gap-5"
+      (click)="$event.stopPropagation()"
+    >
+      <div>
+        <h2 id="del-modal-title" class="font-display text-ink text-lg font-medium">Remove occurrence?</h2>
+        <p class="text-muted text-sm font-body mt-1">
+          <strong class="text-ink">{{ target.title }}</strong> on <strong class="text-ink">{{ target.date | date:'EEEE, MMM d' }}</strong>
+        </p>
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <button
+          type="button"
+          (click)="confirmDeleteOne()"
+          class="w-full py-3.5 px-4 bg-soft-stone text-ink text-sm font-semibold font-body rounded-xl hover:bg-hairline transition-colors text-left border border-border-light shadow-sm"
+        >
+          <p class="font-semibold">Remove this day only</p>
+          <p class="text-muted text-xs font-body font-normal mt-0.5">All other occurrences stay on the calendar.</p>
+        </button>
+        <button
+          type="button"
+          (click)="confirmDeleteAll()"
+          class="w-full py-3.5 px-4 bg-error/10 text-error text-sm font-semibold font-body rounded-xl hover:bg-error/20 transition-colors text-left shadow-sm"
+        >
+          <p class="font-semibold">Remove this and all future</p>
+          <p class="text-error/60 text-xs font-body font-normal mt-0.5">Deletes {{ target.date | date:'MMM d' }} and every occurrence after.</p>
+        </button>
+      </div>
+
+      <button
+        type="button"
+        (click)="cancelDelete()"
+        class="text-muted text-sm font-body hover:text-ink transition-colors text-center"
+      >
+        Cancel
+      </button>
+    </div>
+  </div>
+}
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- FREQUENCY MODAL                                                            -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+@if (showFrequencyModal()) {
+  <div
+    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40 backdrop-blur-sm"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="freq-modal-title"
+    (click)="cancelFrequency()"
+  >
+    <div
+      class="bg-canvas rounded-2xl border border-border-light shadow-xl w-full max-w-sm p-6 flex flex-col gap-5"
+      (click)="$event.stopPropagation()"
+    >
+      <div>
+        <h2 id="freq-modal-title" class="font-display text-ink text-lg font-medium">How often?</h2>
+        <p class="text-muted text-sm font-body mt-1">Set the recurrence for this day.</p>
+      </div>
+
+      <!-- Start date (mobile — no drag date) -->
+      @if (!pendingDropDate()) {
+        <div class="flex flex-col gap-1">
+          <label for="mobile-start-date" class="text-[10px] font-medium text-muted uppercase tracking-wide font-body">Start date</label>
+          <input
+            id="mobile-start-date"
+            type="date"
+            [ngModel]="mobileDateStr()"
+            (ngModelChange)="mobileDateStr.set($event)"
+            class="w-full border border-border-light rounded-lg px-3 py-2.5 text-sm font-body text-ink outline-none focus:border-ink bg-canvas"
+          />
+        </div>
+      }
+
+      <!-- Frequency inputs -->
+      <div class="flex items-center gap-3">
+        <div class="flex flex-col gap-1">
+          <label for="freq-count" class="text-[10px] font-medium text-muted uppercase tracking-wide font-body">Every</label>
+          <input
+            id="freq-count"
+            type="number"
+            [ngModel]="frequencyCount()"
+            (ngModelChange)="frequencyCount.set(+$event)"
+            min="1"
+            max="52"
+            class="w-20 border border-border-light rounded-lg px-3 py-2.5 text-sm font-body text-ink outline-none focus:border-ink bg-canvas text-center"
+          />
+        </div>
+
+        <div class="flex flex-col gap-1 flex-1">
+          <label for="freq-unit" class="text-[10px] font-medium text-muted uppercase tracking-wide font-body">Unit</label>
+          <div class="flex gap-1">
+            @for (unit of ['day', 'week', 'month']; track unit) {
+              <button
+                type="button"
+                (click)="frequencyUnit.set($any(unit))"
+                class="flex-1 py-2.5 rounded-lg text-sm font-body font-medium border transition-colors capitalize"
+                [class]="frequencyUnit() === unit
+                  ? 'bg-primary text-white border-primary'
+                  : 'bg-canvas text-muted border-border-light hover:border-ink hover:text-ink'"
+              >
+                {{ unit }}
+              </button>
+            }
+          </div>
+        </div>
+      </div>
+
+      <!-- Preview -->
+      <p class="text-center text-sm font-body text-ink bg-soft-stone rounded-xl px-4 py-3">
+        {{ frequencyPreview() }}
+      </p>
+
+      <div class="flex gap-3">
+        <button
+          type="button"
+          (click)="cancelFrequency()"
+          class="flex-1 py-2.5 border border-border-light text-muted text-sm font-body rounded-xl hover:text-ink transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          (click)="confirmFrequency()"
+          class="flex-1 py-3 bg-primary text-white text-sm font-semibold font-body rounded-xl hover:bg-ink transition-all shadow-md hover:shadow-lg"
+        >
+          Confirm
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- ICAL SUBSCRIPTION MODAL                                                     -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+@if (showICalModal()) {
+  <div
+    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40 backdrop-blur-sm"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="ical-modal-title"
+    (click)="showICalModal.set(false)"
+  >
+    <div
+      class="bg-canvas rounded-2xl border border-border-light shadow-xl w-full max-w-sm p-6 flex flex-col gap-5"
+      (click)="$event.stopPropagation()"
+    >
+      <div>
+        <div class="w-10 h-10 rounded-xl bg-soft-stone flex items-center justify-center mb-3">
+          <ng-icon name="heroCalendarDays" class="text-muted" size="20" />
+        </div>
+        <h2 id="ical-modal-title" class="font-display text-ink text-lg font-medium">Subscribe to calendar</h2>
+        <p class="text-muted text-sm font-body mt-1">
+          Add your workouts to Google Calendar, Apple Calendar, or any app that supports iCal.
+        </p>
+      </div>
+
+      @if (iCalUrl(); as url) {
+        <div class="flex flex-col gap-2">
+          <label class="text-[10px] font-medium text-muted uppercase tracking-wide font-body">Your unique calendar URL</label>
+          <div class="flex items-center gap-2 bg-soft-stone rounded-xl px-3 py-2.5 border border-border-light">
+            <code class="flex-1 text-[11px] font-body text-ink truncate select-all min-w-0">{{ url }}</code>
+            <button
+              type="button"
+              (click)="copyICalUrl()"
+              class="shrink-0 text-[11px] font-medium font-body px-2.5 py-1 rounded-lg transition-colors"
+              [class]="iCalCopied() ? 'bg-deep-green/10 text-deep-green' : 'bg-canvas text-muted hover:text-ink border border-border-light'"
+              aria-label="Copy iCal URL"
+            >
+              {{ iCalCopied() ? '✓ Copied' : 'Copy' }}
+            </button>
+          </div>
+          <p class="text-[11px] text-muted font-body">
+            This URL is unique to your account. Paste it into your calendar app's "Add by URL" or "Subscribe" field — stays in sync automatically.
+          </p>
+        </div>
+
+        <div class="flex flex-col gap-2">
+          <p class="text-[11px] font-medium text-muted uppercase tracking-wide font-body">Quick add</p>
+          <a
+            [href]="'https://calendar.google.com/calendar/r?cid=' + encodeURIComponent(url)"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="flex items-center gap-3 px-4 py-3 rounded-xl border border-border-light hover:bg-soft-stone transition-colors text-sm font-body text-ink"
+          >
+            <span class="text-lg" aria-hidden="true">📅</span>
+            Open in Google Calendar
+          </a>
+          <a
+            [href]="url"
+            class="flex items-center gap-3 px-4 py-3 rounded-xl border border-border-light hover:bg-soft-stone transition-colors text-sm font-body text-ink"
+          >
+            <span class="text-lg" aria-hidden="true">🍎</span>
+            Open in Apple Calendar
+          </a>
+        </div>
+      } @else {
+        <div class="bg-soft-stone rounded-xl px-4 py-3 text-sm text-muted font-body">
+          Sign in to get your personal iCal subscription URL.
+        </div>
+      }
+
+      <button
+        type="button"
+        (click)="showICalModal.set(false)"
+        class="text-muted text-sm font-body hover:text-ink transition-colors text-center"
+      >
+        Done
+      </button>
+    </div>
+  </div>
+}

@@ -1,0 +1,288 @@
+<div class="flex flex-1 flex-col overflow-hidden min-w-0">
+
+  <!-- Top bar -->
+  <div class="h-14 md:h-16 px-4 md:px-8 flex items-center justify-between border-b border-border-light bg-canvas shrink-0">
+    <div>
+      <h1 class="font-display text-ink text-lg md:text-xl font-medium tracking-tight">Workouts</h1>
+      <p class="text-muted text-xs font-body hidden sm:block">Track sets, reps, and progressive overload</p>
+    </div>
+    @if (!hasActiveSession()) {
+      <button
+        type="button"
+        (click)="startTodayWorkout()"
+        [disabled]="!todayWorkout() || todayWorkout()!.isRest"
+        class="inline-flex items-center gap-2 px-3 md:px-4 py-2 md:py-2.5 bg-coral text-white text-sm font-medium rounded-full font-body hover:bg-coral/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        <ng-icon name="heroPlayCircle" size="16" />
+        <span class="hidden sm:inline">Start today's workout</span>
+        <span class="sm:hidden">Start</span>
+      </button>
+    }
+  </div>
+
+  <div class="flex-1 overflow-y-auto p-4 md:p-6 flex flex-col gap-4 md:gap-5">
+
+    <!-- Active session -->
+    @if (hasActiveSession() && activeSession(); as session) {
+      <section class="bg-canvas rounded-xl border-2 border-coral/30 overflow-hidden" aria-labelledby="session-heading">
+
+        <!-- Session header -->
+        <div class="px-4 md:px-6 py-3 md:py-4 bg-coral/5 border-b border-coral/20 flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2 md:gap-3 min-w-0">
+            <span class="w-2.5 h-2.5 rounded-full bg-coral animate-pulse shrink-0"></span>
+            <div class="min-w-0">
+              <h2 id="session-heading" class="font-display text-ink text-base md:text-lg font-medium truncate">{{ session.name }}</h2>
+              <p class="text-muted text-xs font-body">In progress</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              (click)="discardWorkout()"
+              class="px-3 py-1.5 border border-border-light text-muted text-xs font-medium rounded-full font-body hover:border-error hover:text-error transition-colors"
+            >
+              Discard
+            </button>
+            <button
+              type="button"
+              (click)="finishWorkout()"
+              class="inline-flex items-center gap-1.5 px-3 md:px-4 py-2 bg-primary text-white text-xs font-medium rounded-full font-body hover:bg-ink transition-colors"
+            >
+              <ng-icon name="heroCheckCircle" size="14" />
+              <span class="hidden sm:inline">Finish workout</span>
+              <span class="sm:hidden">Finish</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Exercise cards -->
+        <div class="divide-y divide-border-light">
+          @for (se of session.exercises; track se.id) {
+            <div class="px-4 md:px-6 py-4">
+              <!-- Exercise header -->
+              <button
+                type="button"
+                (click)="expandedExercise.set(expandedExercise() === se.exercise.id ? null : se.exercise.id)"
+                class="w-full flex items-center justify-between mb-3"
+                [attr.aria-expanded]="expandedExercise() === se.exercise.id"
+              >
+                <div class="flex items-center gap-3">
+                  <div class="w-8 h-8 rounded-lg bg-soft-stone flex items-center justify-center shrink-0" aria-hidden="true">
+                    <ng-icon name="heroBolt" class="text-muted" size="14" />
+                  </div>
+                  <div class="text-left">
+                    <p class="text-ink text-sm font-medium font-body">{{ se.exercise.name }}</p>
+                    <p class="text-muted text-[11px] font-body">{{ se.sets.length }} set{{ se.sets.length === 1 ? '' : 's' }} logged</p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2">
+                  @if (se.sets.length > 0) {
+                    <ng-icon name="heroCheckCircle" class="text-deep-green" size="16" />
+                  }
+                  <ng-icon [name]="expandedExercise() === se.exercise.id ? 'heroChevronUp' : 'heroChevronDown'" class="text-muted" size="16" />
+                </div>
+              </button>
+
+              @if (expandedExercise() === se.exercise.id) {
+                <!-- Logged sets -->
+                @if (se.sets.length > 0) {
+                  <div class="mb-3 flex flex-col gap-1.5">
+                    @for (set of se.sets; track set.id) {
+                      <div class="flex items-center gap-3 px-3 py-2.5 bg-soft-stone/60 rounded-lg text-sm font-body">
+                        <span class="text-muted text-xs w-10 shrink-0">Set {{ set.setNumber }}</span>
+                        <span class="text-ink font-medium flex-1">{{ set.reps }} reps</span>
+                        @if (set.weight > 0) {
+                          <span class="text-muted text-sm font-medium">{{ set.weight }} {{ set.weightUnit }}</span>
+                        } @else {
+                          <span class="text-muted text-xs">bodyweight</span>
+                        }
+                        @if (set.isPersonalRecord) {
+                          <span class="text-[10px] font-medium text-coral bg-coral/10 px-2 py-0.5 rounded-full shrink-0">PR</span>
+                        }
+                      </div>
+                    }
+                  </div>
+                }
+
+                <!-- Log new set -->
+                <div class="flex flex-wrap items-center gap-2">
+                  <!-- Reps input -->
+                  <div class="flex items-center border border-border-light rounded-xl overflow-hidden">
+                    <label [for]="'reps-' + se.id" class="px-3 py-2.5 text-[11px] text-muted font-body bg-soft-stone border-r border-border-light uppercase tracking-wide shrink-0">Reps</label>
+                    <input
+                      type="number"
+                      [id]="'reps-' + se.id"
+                      [ngModel]="setInputs()[se.exercise.id]?.reps ?? 8"
+                      (ngModelChange)="updateReps(se.exercise.id, $event)"
+                      min="1" max="99"
+                      class="w-14 px-2 py-2.5 text-sm font-body text-ink outline-none text-center bg-canvas"
+                    />
+                  </div>
+
+                  <!-- Weight input + unit toggle -->
+                  <div class="flex items-center border border-border-light rounded-xl overflow-hidden">
+                    <label [for]="'weight-' + se.id" class="px-3 py-2.5 text-[11px] text-muted font-body bg-soft-stone border-r border-border-light uppercase tracking-wide shrink-0">Weight</label>
+                    <input
+                      type="number"
+                      [id]="'weight-' + se.id"
+                      [ngModel]="setInputs()[se.exercise.id]?.weight ?? 0"
+                      (ngModelChange)="updateWeight(se.exercise.id, $event)"
+                      min="0" step="2.5"
+                      class="w-16 md:w-20 px-2 py-2.5 text-sm font-body text-ink outline-none text-center bg-canvas"
+                    />
+                    <button
+                      type="button"
+                      (click)="toggleUnit(se.exercise.id)"
+                      class="px-2.5 py-2.5 text-xs font-medium font-body text-muted bg-soft-stone border-l border-border-light hover:text-ink transition-colors min-w-[2.5rem]"
+                      [attr.aria-label]="'Toggle unit, currently ' + (setInputs()[se.exercise.id]?.weightUnit ?? 'lbs')"
+                    >
+                      {{ setInputs()[se.exercise.id]?.weightUnit ?? 'lbs' }}
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    (click)="logSet(se.id, se.exercise.id)"
+                    class="inline-flex items-center gap-1.5 px-4 py-2.5 bg-primary text-white text-sm font-medium rounded-xl font-body hover:bg-ink transition-colors"
+                  >
+                    <ng-icon name="heroPlus" size="14" />
+                    Log set
+                  </button>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      </section>
+    } @else {
+      <!-- No active session: today's workout preview -->
+      @if (todayWorkout(); as day) {
+        @if (!day.isRest) {
+          <section class="bg-canvas rounded-xl border border-border-light p-4 md:p-6" aria-labelledby="today-preview-heading">
+            <div class="flex items-center justify-between mb-4 gap-3">
+              <div class="min-w-0">
+                <p class="text-[11px] font-medium text-muted uppercase tracking-widest font-body mb-1">Today's program</p>
+                <h2 id="today-preview-heading" class="font-display text-ink text-xl md:text-2xl font-medium tracking-tight truncate">{{ day.name }}</h2>
+              </div>
+              <button
+                type="button"
+                (click)="startTodayWorkout()"
+                class="inline-flex items-center gap-2 px-4 md:px-5 py-2.5 md:py-3 bg-coral text-white text-sm font-medium rounded-full font-body hover:bg-coral/90 transition-colors shrink-0"
+              >
+                <ng-icon name="heroPlayCircle" size="16" />
+                Start
+              </button>
+            </div>
+            <div class="flex flex-col divide-y divide-border-light">
+              @for (ex of day.exercises; track ex.exercise.id) {
+                <div class="flex items-center justify-between py-3">
+                  <div class="flex items-center gap-3">
+                    <div class="w-7 h-7 rounded-lg bg-soft-stone flex items-center justify-center shrink-0" aria-hidden="true">
+                      <ng-icon name="heroBolt" class="text-muted" size="12" />
+                    </div>
+                    <span class="text-ink text-sm font-medium font-body">{{ ex.exercise.name }}</span>
+                  </div>
+                  <span class="text-xs text-muted font-body shrink-0 ml-2">{{ ex.sets }} × {{ ex.reps }}</span>
+                </div>
+              }
+            </div>
+          </section>
+        } @else {
+          <div class="flex flex-col items-center justify-center py-12 text-center bg-canvas rounded-xl border border-border-light">
+            <span class="text-4xl mb-3" aria-hidden="true">💤</span>
+            <p class="font-display text-ink text-lg font-medium">Rest day</p>
+            <p class="text-muted text-sm font-body mt-1">Recovery is part of the program.</p>
+          </div>
+        }
+      } @else {
+        <div class="flex flex-col items-center justify-center py-12 text-center bg-canvas rounded-xl border border-border-light">
+          <ng-icon name="heroBolt" class="text-hairline mb-3" size="36" />
+          <p class="font-display text-ink text-lg font-medium mb-1">No active program</p>
+          <p class="text-muted text-sm font-body">Head to Programs to set one up.</p>
+        </div>
+      }
+    }
+
+    <!-- Two-column bottom: History + PRs -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5">
+
+      <!-- Session history -->
+      <section class="bg-canvas rounded-xl border border-border-light overflow-hidden" aria-labelledby="history-heading">
+        <div class="px-4 md:px-6 py-4 border-b border-border-light">
+          <p class="text-[11px] font-medium text-muted uppercase tracking-widest font-body mb-1">Log</p>
+          <h2 id="history-heading" class="font-display text-ink text-xl md:text-2xl font-medium tracking-tight">Recent sessions</h2>
+        </div>
+        <div class="divide-y divide-border-light">
+          @for (session of recentSessions(); track session.id) {
+            <div class="flex items-center gap-3 md:gap-4 px-4 md:px-6 py-3 md:py-4">
+              <div class="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-soft-stone flex items-center justify-center shrink-0" aria-hidden="true">
+                <ng-icon name="heroFire" class="text-coral" size="16" />
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-ink text-sm font-medium font-body truncate">{{ session.name }}</p>
+                <p class="text-muted text-xs font-body">{{ session.date }} · {{ session.exercises.length }} exercise{{ session.exercises.length === 1 ? '' : 's' }}</p>
+              </div>
+              <div class="text-right shrink-0">
+                <p class="text-ink text-sm font-medium font-body">{{ formatDuration(session.durationSeconds) }}</p>
+                @if (session.completed) {
+                  <ng-icon name="heroCheckCircle" class="text-deep-green" size="16" aria-label="Completed" />
+                }
+              </div>
+            </div>
+          } @empty {
+            <div class="px-6 py-10 text-center">
+              <p class="text-muted text-sm font-body">No sessions logged yet.</p>
+            </div>
+          }
+        </div>
+      </section>
+
+      <!-- Personal records -->
+      <section class="bg-canvas rounded-xl border border-border-light overflow-hidden" aria-labelledby="prs-heading">
+        <div class="px-4 md:px-6 py-4 border-b border-border-light">
+          <p class="text-[11px] font-medium text-muted uppercase tracking-widest font-body mb-1">Progress</p>
+          <h2 id="prs-heading" class="font-display text-ink text-xl md:text-2xl font-medium tracking-tight">Personal records</h2>
+        </div>
+
+        @if (selectedExerciseId()) {
+          <div class="px-4 md:px-6 pt-4 pb-2 border-b border-border-light">
+            <div echarts [options]="prChartOption()" class="h-36 w-full" aria-label="Exercise progression chart"></div>
+          </div>
+        }
+
+        <div class="divide-y divide-border-light max-h-80 overflow-y-auto">
+          @for (pr of exercisePRs(); track pr!.exercise.id) {
+            @if (pr) {
+              <button
+                type="button"
+                (click)="selectedExerciseId.set(selectedExerciseId() === pr.exercise.id ? null : pr.exercise.id)"
+                [class]="selectedExerciseId() === pr.exercise.id
+                  ? 'w-full text-left flex items-center gap-3 md:gap-4 px-4 md:px-6 py-3.5 bg-soft-stone/60'
+                  : 'w-full text-left flex items-center gap-3 md:gap-4 px-4 md:px-6 py-3.5 hover:bg-soft-stone/40 transition-colors'"
+              >
+                <div class="w-8 h-8 rounded-lg bg-soft-stone flex items-center justify-center shrink-0" aria-hidden="true">
+                  <ng-icon name="heroArrowTrendingUp" class="text-coral" size="14" />
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-ink text-sm font-medium font-body truncate">{{ pr.exercise.name }}</p>
+                  <p class="text-muted text-[11px] font-body">{{ pr.date }}</p>
+                </div>
+                <div class="text-right shrink-0">
+                  <p class="font-display text-ink text-base font-medium">{{ pr.weight }} <span class="text-xs text-muted font-body font-normal">{{ pr.unit }}</span></p>
+                  @if (pr.gain > 0) {
+                    <p class="text-[11px] text-deep-green font-body">+{{ pr.gain }} {{ pr.unit }}</p>
+                  }
+                </div>
+              </button>
+            }
+          } @empty {
+            <div class="px-6 py-10 text-center">
+              <p class="text-muted text-sm font-body">Log workouts to track your PRs.</p>
+            </div>
+          }
+        </div>
+      </section>
+    </div>
+
+  </div>
+</div>
