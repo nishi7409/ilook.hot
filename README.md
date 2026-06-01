@@ -127,6 +127,15 @@ The iCal subscription URL is domain-dynamic — it reads `document.location.orig
 
 Pre-built images are published to [GitHub Container Registry](https://github.com/nishi7409/ilook.hot/pkgs/container/ilook.hot-api) on every release. Pin a specific version by replacing `latest` with a version tag (e.g. `v1.0.0`) in `docker-compose.prod.yml`.
 
+### Cutting a release
+
+```bash
+git tag v1.2.3
+git push origin v1.2.3
+```
+
+GitHub Actions builds both Docker images, pushes them to GHCR, and creates a GitHub Release automatically. No manual steps needed.
+
 ---
 
 ## Project structure

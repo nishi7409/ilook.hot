@@ -8,6 +8,7 @@ RUN npm ci
 
 COPY src ./src
 COPY tsconfig.json ./
+COPY drizzle ./drizzle
 
 RUN npm run build
 
@@ -20,6 +21,7 @@ COPY package*.json ./
 RUN npm ci --omit=dev
 
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/drizzle ./drizzle
 
 EXPOSE 3000
 

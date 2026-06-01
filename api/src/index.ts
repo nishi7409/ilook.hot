@@ -2,6 +2,8 @@ import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
+import { migrate } from 'drizzle-orm/postgres-js/migrator';
+import { db } from './db/index.js';
 import authRoutes from './routes/auth.js';
 import programRoutes from './routes/programs.js';
 import scheduleRoutes from './routes/schedules.js';
@@ -34,5 +36,10 @@ app.onError((err, c) => {
 });
 
 const port = parseInt(process.env.PORT ?? '3000', 10);
+
+console.log('Running database migrations...');
+await migrate(db, { migrationsFolder: './drizzle' });
+console.log('Migrations complete.');
+
 console.log(`API listening on port ${port}`);
 serve({ fetch: app.fetch, port });

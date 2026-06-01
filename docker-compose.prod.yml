@@ -39,11 +39,54 @@ services:
     restart: unless-stopped
     ports:
       - "${PORT:-80}:80"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    configs:
+      - source: nginx_conf
+        target: /etc/nginx/nginx.conf
     depends_on:
       - api
       - web
+
+configs:
+  nginx_conf:
+    content: |
+      events {
+        worker_connections 1024;
+      }
+
+      http {
+        client_max_body_size 10m;
+
+        server {
+          listen 80;
+
+          location /api/ {
+            proxy_pass http://api:3000/api/;
+            proxy_set_header Host $$host;
+            proxy_set_header X-Real-IP $$remote_addr;
+            proxy_set_header X-Forwarded-For $$proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $$scheme;
+          }
+
+          location /calendar/ {
+            proxy_pass http://api:3000/calendar/;
+            proxy_set_header Host $$host;
+            proxy_set_header X-Real-IP $$remote_addr;
+            proxy_set_header X-Forwarded-For $$proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $$scheme;
+          }
+
+          location / {
+            proxy_pass http://web:4000;
+            proxy_set_header Host $$host;
+            proxy_set_header X-Real-IP $$remote_addr;
+            proxy_set_header X-Forwarded-For $$proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $$scheme;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $$http_upgrade;
+            proxy_set_header Connection "upgrade";
+          }
+        }
+      }
 
 volumes:
   postgres_data:
