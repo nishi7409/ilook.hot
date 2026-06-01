@@ -103,13 +103,29 @@ npm test
 
 ## Self-hosting
 
-Clone the repo and run:
+No need to clone the repo. Download the two files you need and start:
 
 ```bash
-docker compose up --build -d
+# 1. Download the prod compose file and nginx config
+curl -O https://raw.githubusercontent.com/nishi7409/ilook.hot/main/docker-compose.prod.yml
+curl -O https://raw.githubusercontent.com/nishi7409/ilook.hot/main/nginx.conf
+
+# 2. Start everything (pulls pre-built images from GitHub Container Registry)
+docker compose -f docker-compose.prod.yml up -d
 ```
 
-Point a reverse proxy (nginx, Caddy, etc.) at port 80, or update `docker-compose.yml` to expose a different port. The iCal subscription URL is domain-dynamic — it reads `document.location.origin` at runtime so it works on any domain automatically.
+App runs at `http://localhost:80`.
+
+**Environment variables** (optional — set in a `.env` file next to the compose file):
+
+```env
+POSTGRES_PASSWORD=change_me   # default: ilook_secret
+PORT=80                        # host port nginx binds to
+```
+
+The iCal subscription URL is domain-dynamic — it reads `document.location.origin` at runtime so it works on any domain automatically.
+
+Pre-built images are published to [GitHub Container Registry](https://github.com/nishi7409/ilook.hot/pkgs/container/ilook.hot-api) on every release. Pin a specific version by replacing `latest` with a version tag (e.g. `v1.0.0`) in `docker-compose.prod.yml`.
 
 ---
 
