@@ -31,6 +31,8 @@ services:
     environment:
       PORT: 4000
       NODE_ENV: production
+      # Comma-separated list of allowed hostnames for Angular SSR (optional)
+      # ALLOWED_HOSTS: ilook.hot,dev.ilook.hot
     depends_on:
       - api
 

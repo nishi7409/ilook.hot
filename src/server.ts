@@ -10,13 +10,20 @@ import { join } from 'node:path';
 const browserDistFolder = join(import.meta.dirname, '../browser');
 
 const app = express();
-const angularApp = new AngularNodeAppEngine({
-  // Trust proxy headers set by nginx / Cloudflare tunnel
-  allowedHosts: /./,
-});
 
 // Trust the reverse proxy (nginx) for X-Forwarded-* headers
 app.set('trust proxy', true);
+
+// allowedHosts: comma-separated list of domains in ALLOWED_HOSTS env var.
+// e.g. ALLOWED_HOSTS=ilook.hot,dev.ilook.hot
+// If unset, all hosts are allowed (safe when nginx is the only entry point).
+const allowedHosts = process.env['ALLOWED_HOSTS']
+  ? process.env['ALLOWED_HOSTS'].split(',').map((h) => h.trim())
+  : undefined;
+
+const angularApp = new AngularNodeAppEngine(
+  allowedHosts ? { allowedHosts } : undefined,
+);
 
 /**
  * Example Express Rest API endpoints can be defined here.
