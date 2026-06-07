@@ -178,21 +178,65 @@
         @if (addMode() === 'scan') {
           <div class="p-5 flex flex-col gap-4">
             @if (showBarcodeScanner()) {
-              <div class="relative w-full aspect-video rounded-2xl overflow-hidden bg-black border border-border-light">
+              <!-- Viewfinder -->
+              <div
+                class="relative w-full aspect-video rounded-2xl overflow-hidden bg-black transition-all duration-300"
+                [class]="scanState() === 'found'
+                  ? 'border-2 border-green-400 shadow-[0_0_16px_rgba(74,222,128,0.5)]'
+                  : 'border border-border-light'"
+              >
+                <!-- Live camera feed -->
                 <video
                   data-scanner-video
                   autoplay
                   playsinline
                   muted
-                  class="w-full h-full object-cover"
+                  [class]="scanState() === 'found' ? 'hidden' : 'w-full h-full object-cover'"
                 ></video>
-                <div class="absolute inset-x-8 top-1/2 -translate-y-1/2 h-0.5 bg-coral/80 rounded-full shadow-[0_0_8px_rgba(255,119,89,0.8)]"></div>
-                <div class="absolute inset-8 border-2 border-white/20 rounded-xl pointer-events-none"></div>
+
+                <!-- Frozen frame shown after detection -->
+                @if (scanState() === 'found' && frozenFrame()) {
+                  <img [src]="frozenFrame()" alt="Captured barcode" class="w-full h-full object-cover" />
+                }
+
+                <!-- Corner brackets -->
+                <div class="absolute inset-8 pointer-events-none">
+                  <div class="absolute top-0 left-0 w-5 h-5 border-t-2 border-l-2 rounded-tl-sm" [class]="scanState() === 'found' ? 'border-green-400' : 'border-white/70'"></div>
+                  <div class="absolute top-0 right-0 w-5 h-5 border-t-2 border-r-2 rounded-tr-sm" [class]="scanState() === 'found' ? 'border-green-400' : 'border-white/70'"></div>
+                  <div class="absolute bottom-0 left-0 w-5 h-5 border-b-2 border-l-2 rounded-bl-sm" [class]="scanState() === 'found' ? 'border-green-400' : 'border-white/70'"></div>
+                  <div class="absolute bottom-0 right-0 w-5 h-5 border-b-2 border-r-2 rounded-br-sm" [class]="scanState() === 'found' ? 'border-green-400' : 'border-white/70'"></div>
+                </div>
+
+                <!-- Sweep line (scanning only) -->
+                @if (scanState() === 'scanning') {
+                  <div class="absolute inset-x-10 h-0.5 bg-coral/90 rounded-full shadow-[0_0_8px_rgba(255,119,89,0.9)] scanner-sweep pointer-events-none"></div>
+                }
+
+                <!-- Found overlay -->
+                @if (scanState() === 'found') {
+                  <div class="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/40">
+                    <div class="w-14 h-14 rounded-full bg-green-400/20 border-2 border-green-400 flex items-center justify-center">
+                      <ng-icon name="heroCheckCircle" size="28" class="text-green-400" />
+                    </div>
+                    <span class="text-white text-xs font-body font-medium px-3 py-1 bg-black/50 rounded-full">Looking up product…</span>
+                  </div>
+                }
               </div>
-              <p class="text-muted text-sm font-body text-center">Point your camera at a barcode (EAN-13, UPC-A, etc.)</p>
+
+              <!-- Status text -->
+              <p class="text-sm font-body text-center" [class]="scanState() === 'found' ? 'text-green-500 font-medium' : 'text-muted'">
+                @if (scanState() === 'found') {
+                  ✓ Barcode detected!
+                } @else {
+                  <span class="inline-flex items-center gap-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-coral animate-pulse inline-block"></span>
+                    Scanning… point camera at barcode
+                  </span>
+                }
+              </p>
             }
 
-            @if (scanLoading()) {
+            @if (scanLoading() && !showBarcodeScanner()) {
               <div class="flex items-center justify-center gap-2 text-primary text-sm font-body">
                 <span class="w-1.5 h-1.5 rounded-full bg-primary animate-ping"></span>
                 Looking up product…
@@ -202,7 +246,13 @@
             @if (scanError()) {
               <div class="px-4 py-3 bg-error/10 border border-error/30 rounded-xl">
                 <p class="text-error text-sm font-body">{{ scanError() }}</p>
-                <button type="button" (click)="addMode.set('search')" class="mt-2 text-primary text-xs font-body underline">Search manually instead</button>
+                <div class="mt-3 flex items-center gap-3">
+                  <button type="button" (click)="startScan()" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white text-xs font-medium rounded-full font-body hover:bg-ink transition-colors">
+                    <ng-icon name="heroQrCode" size="12" />
+                    Scan again
+                  </button>
+                  <button type="button" (click)="addMode.set('search'); nutritionService.search('')" class="text-muted text-xs font-body underline">Search manually</button>
+                </div>
               </div>
             }
           </div>
@@ -293,6 +343,14 @@
         }
 
       </div>
+    </div>
+  }
+
+  <!-- Toast notification -->
+  @if (toast()) {
+    <div class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-3 bg-ink text-white text-sm font-body font-medium rounded-full shadow-xl animate-fade-in pointer-events-none">
+      <ng-icon name="heroCheckCircle" size="16" class="text-green-400 shrink-0" />
+      {{ toast() }}
     </div>
   }
 

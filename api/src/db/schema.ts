@@ -119,3 +119,32 @@ export const workoutSets = pgTable('workout_sets', {
   isPersonalRecord: boolean('is_personal_record').default(false).notNull(),
   completedAt: text('completed_at'),
 });
+
+// Nutrition logs
+export const nutritionLogs = pgTable('nutrition_logs', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  date: text('date').notNull(), // yyyy-MM-dd
+  foodId: text('food_id').notNull(),
+  foodName: text('food_name').notNull(),
+  brand: text('brand'),
+  servingSize: numeric('serving_size', { precision: 10, scale: 3 }).default('100').notNull(),
+  servingUnit: text('serving_unit').default('g').notNull(),
+  calories: numeric('calories', { precision: 8, scale: 2 }).default('0').notNull(),
+  protein: numeric('protein', { precision: 8, scale: 2 }).default('0').notNull(),
+  carbs: numeric('carbs', { precision: 8, scale: 2 }).default('0').notNull(),
+  fat: numeric('fat', { precision: 8, scale: 2 }).default('0').notNull(),
+  mealType: text('meal_type').notNull(), // breakfast | lunch | dinner | snack
+  servings: numeric('servings', { precision: 6, scale: 2 }).default('1').notNull(),
+  loggedAt: text('logged_at').notNull(),
+  source: text('source').default('custom').notNull(),
+});
+
+// Nutrition goals (one row per user)
+export const nutritionGoals = pgTable('nutrition_goals', {
+  userId: text('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+  calories: integer('calories').default(2400).notNull(),
+  protein: integer('protein').default(180).notNull(),
+  carbs: integer('carbs').default(250).notNull(),
+  fat: integer('fat').default(80).notNull(),
+});

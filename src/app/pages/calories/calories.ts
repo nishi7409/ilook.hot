@@ -51,6 +51,16 @@ export class Calories {
   protected readonly mealLabels = MEAL_LABELS;
   protected readonly today = format(new Date(), 'EEEE, MMMM d');
 
+  // Toast notification
+  protected readonly toast = signal<string | null>(null);
+  private toastTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private showToast(message: string): void {
+    if (this.toastTimer) clearTimeout(this.toastTimer);
+    this.toast.set(message);
+    this.toastTimer = setTimeout(() => this.toast.set(null), 3000);
+  }
+
   // Food logging state
   protected readonly addingTo = signal<MealType | null>(null);
   protected readonly addMode = signal<'select' | 'search' | 'scan' | 'custom'>('select');
@@ -69,6 +79,8 @@ export class Calories {
   protected readonly showBarcodeScanner = signal(false);
   protected readonly scanError = signal<string | null>(null);
   protected readonly scanLoading = signal(false);
+  protected readonly scanState = signal<'scanning' | 'found'>('scanning');
+  protected readonly frozenFrame = signal<string | null>(null);
   // Always supported — native BarcodeDetector where available, zxing fallback everywhere else
   protected readonly barcodeSupported = true;
 
@@ -76,6 +88,7 @@ export class Calories {
   private videoStream: MediaStream | null = null;
   private detectionInterval: ReturnType<typeof setInterval> | null = null;
   private zxingReader: BrowserMultiFormatReader | null = null;
+  private zxingControls: { stop: () => void } | null = null;
 
   protected readonly totals = this.nutritionService.todayTotals;
   protected readonly goals = this.nutritionService.goals;
@@ -239,6 +252,7 @@ export class Calories {
     const meal = this.addingTo();
     if (!food || !meal) return;
     this.nutritionService.addEntry(food, this.servings(), meal);
+    this.showToast(`${food.name} added to ${this.mealLabels[meal]}`);
     this.selectedFood.set(null);
     this.searchQuery.set('');
     this.nutritionService.search('');
@@ -271,6 +285,8 @@ export class Calories {
 
   async startScan(): Promise<void> {
     this.scanError.set(null);
+    this.scanState.set('scanning');
+    this.frozenFrame.set(null);
     this.addMode.set('scan');
     try {
       this.videoStream = await navigator.mediaDevices.getUserMedia({
@@ -290,10 +306,31 @@ export class Calories {
     video.srcObject = this.videoStream;
     video.play().catch(() => {});
 
-    if ('BarcodeDetector' in window) {
-      this.startNativeDetection(video);
+    // Wait for video to be ready before starting detection
+    const startDetection = () => {
+      if ('BarcodeDetector' in window) {
+        this.startNativeDetection(video);
+      } else {
+        this.startZxingDetection(video);
+      }
+    };
+
+    if (video.readyState >= 2) {
+      startDetection();
     } else {
-      this.startZxingDetection(video);
+      video.addEventListener('canplay', startDetection, { once: true });
+    }
+  }
+
+  private captureFrame(video: HTMLVideoElement): string | null {
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth || video.clientWidth;
+      canvas.height = video.videoHeight || video.clientHeight;
+      canvas.getContext('2d')?.drawImage(video, 0, 0, canvas.width, canvas.height);
+      return canvas.toDataURL('image/jpeg', 0.85);
+    } catch {
+      return null;
     }
   }
 
@@ -305,24 +342,34 @@ export class Calories {
       try {
         const found = await detector.detect(video);
         if (found.length > 0) {
+          const frame = this.captureFrame(video);
+          this.zone.run(() => {
+            this.frozenFrame.set(frame);
+            this.scanState.set('found');
+          });
           this.stopCamera();
           await this.lookupBarcode(found[0].rawValue);
         }
       } catch { /* ignore frame errors */ }
-    }, 600);
+    }, 400);
   }
 
   /** zxing fallback — Chrome/Firefox on Windows/Linux */
   private startZxingDetection(video: HTMLVideoElement): void {
     this.zxingReader = new BrowserMultiFormatReader();
-    // decodeFromStream takes the MediaStream directly and manages the video element
     this.zxingReader.decodeFromStream(this.videoStream!, video, (result, _err, controls) => {
       if (!result) return;
+      const frame = this.captureFrame(video);
       this.zone.run(async () => {
+        this.frozenFrame.set(frame);
+        this.scanState.set('found');
+        this.zxingControls = null;
         controls.stop();
         this.stopCamera();
         await this.lookupBarcode(result.getText());
       });
+    }).then((controls) => {
+      this.zxingControls = controls;
     }).catch(() => {});
   }
 
@@ -338,27 +385,34 @@ export class Calories {
       clearInterval(this.detectionInterval);
       this.detectionInterval = null;
     }
-    if (this.zxingReader) {
-      this.zxingReader.reset();
-      this.zxingReader = null;
+    if (this.zxingControls) {
+      this.zxingControls.stop();
+      this.zxingControls = null;
     }
+    this.zxingReader = null;
     this.videoStream?.getTracks().forEach((t) => t.stop());
     this.videoStream = null;
   }
 
   private async lookupBarcode(barcode: string): Promise<void> {
+    // This runs exclusively in the browser (triggered by camera detection — never SSR).
+    // Fetch goes directly from the client to Open Food Facts — no server proxy.
+    // Normalize UPC-A (12 digits) → EAN-13 by prepending 0 (OFF stores them this way)
+    const normalized = barcode.length === 12 ? `0${barcode}` : barcode;
+    barcode = normalized;
     this.scanLoading.set(true);
     this.scanError.set(null);
-    this.showBarcodeScanner.set(false);
+    // Keep showBarcodeScanner true so frozen frame stays visible during lookup
     try {
       const res = await fetch(
-        `https://world.openfoodfacts.net/api/v2/product/${barcode}?fields=product_name,generic_name,brands,serving_quantity,serving_size,nutriments`,
-        { headers: { 'User-Agent': 'ilook.hot/0.0.8 (https://github.com/nishi7409/ilook.hot)' } },
+        `https://world.openfoodfacts.org/api/v3/product/${barcode}?fields=product_name,generic_name,brands,serving_quantity,serving_size,nutriments`,
+        { headers: { 'User-Agent': 'ilook.hot/0.0.9 (https://github.com/nishi7409/ilook.hot)' } },
       );
       const data = await res.json();
-      if (data.status !== 1 || !data.product) {
+      if (data.status !== 'success' || !data.product) {
+        this.showBarcodeScanner.set(false);
         this.scanError.set(`Product not found (${barcode}). Try searching manually.`);
-        this.addMode.set('select');
+        // Stay in scan mode so the error message is visible
         return;
       }
       const p = data.product;
@@ -376,11 +430,17 @@ export class Calories {
         fat: +(n['fat_serving'] ?? n['fat_100g'] ?? 0).toFixed(1),
         source: 'openfoodfacts',
       };
-      this.addMode.set('search');
-      this.selectFood(food);
+      // Auto-log with 1 serving — no extra tap needed after scanning
+      const meal = this.addingTo();
+      if (meal) {
+        this.nutritionService.addEntry(food, 1, meal);
+        this.showToast(`${food.name} added to ${this.mealLabels[meal]}`);
+      }
+      this.closeAddModal();
     } catch {
+      this.showBarcodeScanner.set(false);
       this.scanError.set('Could not look up product. Check your connection.');
-      this.addMode.set('select');
+      // Stay in scan mode so the error is visible
     } finally {
       this.scanLoading.set(false);
     }

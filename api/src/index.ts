@@ -10,6 +10,7 @@ import scheduleRoutes from './routes/schedules.js';
 import calendarRoutes from './routes/calendar.js';
 import exerciseRoutes from './routes/exercises.js';
 import workoutRoutes from './routes/workouts.js';
+import nutritionRoutes from './routes/nutrition.js';
 import { seedExercises } from './data/exercises.js';
 import { authMiddleware } from './middleware/auth.js';
 import type { AuthEnv } from './middleware/auth.js';
@@ -20,7 +21,7 @@ app.use('*', logger());
 app.use('*', cors({
   origin: (origin) => origin ?? '*',
   credentials: true,
-  allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowMethods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Cookie'],
   exposeHeaders: ['Set-Cookie'],
 }));
@@ -32,6 +33,7 @@ app.route('/api/schedules', scheduleRoutes);
 app.route('/api/exercises', exerciseRoutes);
 app.route('/calendar', calendarRoutes);
 app.route('/api/workouts', workoutRoutes);
+app.route('/api/nutrition', nutritionRoutes);
 
 app.get('/api/health', (c) => c.json({ ok: true }));
 

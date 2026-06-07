@@ -29,6 +29,13 @@
       "when": 1748822460000,
       "tag": "0003_workout_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1748908800000,
+      "tag": "0004_nutrition",
+      "breakpoints": true
     }
   ]
 }
