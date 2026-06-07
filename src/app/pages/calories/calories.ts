@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal, NgZone } from '@angular/core';
+import { BrowserMultiFormatReader } from '@zxing/browser';
 import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -29,7 +30,7 @@ const MEAL_LABELS: Record<MealType, string> = {
   snack: 'Snacks',
 };
 
-// Declare minimal BarcodeDetector types (Chrome/Edge Web API)
+// Declare minimal BarcodeDetector types (Chrome/Edge on Android/macOS only)
 declare class BarcodeDetector {
   constructor(options?: { formats: string[] });
   detect(source: HTMLVideoElement): Promise<Array<{ rawValue: string }>>;
@@ -44,7 +45,7 @@ declare class BarcodeDetector {
   host: { class: 'flex flex-1 flex-col overflow-hidden min-w-0' },
 })
 export class Calories {
-  protected readonly showUnderConstruction = true;
+  protected readonly showUnderConstruction = false;
   protected readonly nutritionService = inject(NutritionService);
   protected readonly mealOrder = MEAL_ORDER;
   protected readonly mealLabels = MEAL_LABELS;
@@ -68,10 +69,13 @@ export class Calories {
   protected readonly showBarcodeScanner = signal(false);
   protected readonly scanError = signal<string | null>(null);
   protected readonly scanLoading = signal(false);
-  protected readonly barcodeSupported = typeof window !== 'undefined' && 'BarcodeDetector' in window;
+  // Always supported — native BarcodeDetector where available, zxing fallback everywhere else
+  protected readonly barcodeSupported = true;
 
+  private readonly zone = inject(NgZone);
   private videoStream: MediaStream | null = null;
   private detectionInterval: ReturnType<typeof setInterval> | null = null;
+  private zxingReader: BrowserMultiFormatReader | null = null;
 
   protected readonly totals = this.nutritionService.todayTotals;
   protected readonly goals = this.nutritionService.goals;
@@ -260,18 +264,18 @@ export class Calories {
 
   // ── Barcode scanner ───────────────────────────────────────────────
 
+  async openScanner(meal: MealType): Promise<void> {
+    this.addingTo.set(meal);
+    await this.startScan();
+  }
+
   async startScan(): Promise<void> {
     this.scanError.set(null);
-    if (!this.barcodeSupported) {
-      this.scanError.set('Barcode scanning requires Chrome or Edge. Try searching manually.');
-      return;
-    }
     this.addMode.set('scan');
     try {
       this.videoStream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment', width: { ideal: 1280 } },
       });
-      // Show the video element AFTER the stream is ready, then attach on next tick
       this.showBarcodeScanner.set(true);
       setTimeout(() => this.attachStreamToVideo(), 50);
     } catch {
@@ -285,15 +289,16 @@ export class Calories {
     if (!video || !this.videoStream) return;
     video.srcObject = this.videoStream;
     video.play().catch(() => {});
-    this.startDetecting(video);
+
+    if ('BarcodeDetector' in window) {
+      this.startNativeDetection(video);
+    } else {
+      this.startZxingDetection(video);
+    }
   }
 
-  async openScanner(meal: MealType): Promise<void> {
-    this.addingTo.set(meal);
-    await this.startScan();
-  }
-
-  private startDetecting(video: HTMLVideoElement): void {
+  /** Native BarcodeDetector — Chrome on Android/macOS */
+  private startNativeDetection(video: HTMLVideoElement): void {
     const detector = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39'] });
     this.detectionInterval = setInterval(async () => {
       if (video.readyState < 2) return;
@@ -307,6 +312,19 @@ export class Calories {
     }, 600);
   }
 
+  /** zxing fallback — Chrome/Firefox on Windows/Linux */
+  private startZxingDetection(video: HTMLVideoElement): void {
+    this.zxingReader = new BrowserMultiFormatReader();
+    this.zxingReader.decodeFromVideoElement(video, (result, err) => {
+      if (!result) return;
+      // Run inside Angular's zone so signals update
+      this.zone.run(async () => {
+        this.stopCamera();
+        await this.lookupBarcode(result.getText());
+      });
+    });
+  }
+
   stopScanner(): void {
     this.stopCamera();
     this.showBarcodeScanner.set(false);
@@ -318,6 +336,10 @@ export class Calories {
     if (this.detectionInterval !== null) {
       clearInterval(this.detectionInterval);
       this.detectionInterval = null;
+    }
+    if (this.zxingReader) {
+      this.zxingReader.reset();
+      this.zxingReader = null;
     }
     this.videoStream?.getTracks().forEach((t) => t.stop());
     this.videoStream = null;
