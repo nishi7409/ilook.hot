@@ -315,14 +315,15 @@ export class Calories {
   /** zxing fallback — Chrome/Firefox on Windows/Linux */
   private startZxingDetection(video: HTMLVideoElement): void {
     this.zxingReader = new BrowserMultiFormatReader();
-    this.zxingReader.decodeFromVideoElement(video, (result, err) => {
+    // decodeFromStream takes the MediaStream directly and manages the video element
+    this.zxingReader.decodeFromStream(this.videoStream!, video, (result, _err, controls) => {
       if (!result) return;
-      // Run inside Angular's zone so signals update
       this.zone.run(async () => {
+        controls.stop();
         this.stopCamera();
         await this.lookupBarcode(result.getText());
       });
-    });
+    }).catch(() => {});
   }
 
   stopScanner(): void {
@@ -348,34 +349,38 @@ export class Calories {
   private async lookupBarcode(barcode: string): Promise<void> {
     this.scanLoading.set(true);
     this.scanError.set(null);
+    this.showBarcodeScanner.set(false);
     try {
-      const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
+      const res = await fetch(
+        `https://world.openfoodfacts.net/api/v2/product/${barcode}?fields=product_name,generic_name,brands,serving_quantity,serving_size,nutriments`,
+        { headers: { 'User-Agent': 'ilook.hot/0.0.8 (https://github.com/nishi7409/ilook.hot)' } },
+      );
       const data = await res.json();
       if (data.status !== 1 || !data.product) {
-        this.scanError.set(`Product not found for barcode ${barcode}. Try searching manually.`);
-        this.showBarcodeScanner.set(false);
+        this.scanError.set(`Product not found (${barcode}). Try searching manually.`);
+        this.addMode.set('select');
         return;
       }
       const p = data.product;
       const n = p.nutriments ?? {};
+      // Prefer per-serving values, fall back to per-100g
       const food: FoodItem = {
         id: `barcode-${barcode}`,
         name: p.product_name || p.generic_name || 'Unknown product',
-        brand: p.brands || undefined,
+        brand: p.brands?.split(',')[0].trim() || undefined,
         servingSize: parseFloat(p.serving_quantity) || 100,
-        servingUnit: p.serving_size || 'serving',
-        calories: Math.round(n['energy-kcal_serving'] ?? n['energy-kcal_100g'] ?? 0),
-        protein: Math.round((n['proteins_serving'] ?? n['proteins_100g'] ?? 0) * 10) / 10,
-        carbs: Math.round((n['carbohydrates_serving'] ?? n['carbohydrates_100g'] ?? 0) * 10) / 10,
-        fat: Math.round((n['fat_serving'] ?? n['fat_100g'] ?? 0) * 10) / 10,
+        servingUnit: p.serving_size || '100g',
+        calories: Math.round(n['energy-kcal_serving'] ?? n['energy-kcal_100g'] ?? n['energy_kcal'] ?? 0),
+        protein: +(n['proteins_serving'] ?? n['proteins_100g'] ?? 0).toFixed(1),
+        carbs: +(n['carbohydrates_serving'] ?? n['carbohydrates_100g'] ?? 0).toFixed(1),
+        fat: +(n['fat_serving'] ?? n['fat_100g'] ?? 0).toFixed(1),
         source: 'openfoodfacts',
       };
-      this.showBarcodeScanner.set(false);
       this.addMode.set('search');
       this.selectFood(food);
     } catch {
       this.scanError.set('Could not look up product. Check your connection.');
-      this.showBarcodeScanner.set(false);
+      this.addMode.set('select');
     } finally {
       this.scanLoading.set(false);
     }
