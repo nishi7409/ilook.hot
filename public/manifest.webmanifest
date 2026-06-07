@@ -1,0 +1,24 @@
+{
+  "name": "ilook.hot",
+  "short_name": "ilook.hot",
+  "description": "The open-source fitness tracker for people who want to look hot.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a1a20",
+  "theme_color": "#1a1a20",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
