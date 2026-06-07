@@ -1472,10 +1472,10 @@
           <button
             type="button"
             (click)="programService.createFromTemplate(tmpl.key); showTemplateModal.set(false)"
-            class="text-left p-4 rounded-xl border border-border-light hover:border-primary/40 hover:bg-primary/[0.03] transition-all group"
+            class="text-left p-4 rounded-xl border border-border-light hover:border-coral/40 hover:bg-soft-stone/60 dark:hover:bg-soft-stone transition-all group"
           >
             <div class="flex items-start justify-between gap-2 mb-2">
-              <span class="font-display text-ink font-semibold text-sm group-hover:text-primary transition-colors">{{ tmpl.name }}</span>
+              <span class="font-display text-ink font-semibold text-sm group-hover:text-coral transition-colors">{{ tmpl.name }}</span>
               <span class="text-[10px] font-medium text-muted bg-soft-stone px-2 py-0.5 rounded-full font-body shrink-0 mt-0.5">{{ tmpl.daysPerWeek }}d/wk</span>
             </div>
             <p class="text-muted text-xs font-body leading-relaxed mb-3">{{ tmpl.description }}</p>
@@ -1498,7 +1498,7 @@
                     <span class="text-[9px] font-body text-muted w-16 shrink-0 truncate">{{ v.group }}</span>
                     <div class="flex-1 h-1.5 bg-soft-stone rounded-full overflow-hidden">
                       <div
-                        class="h-full rounded-full bg-primary/60 transition-all"
+                        class="h-full rounded-full bg-coral/60 transition-all"
                         [style.width.%]="v.pct"
                       ></div>
                     </div>
