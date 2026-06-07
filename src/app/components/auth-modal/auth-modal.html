@@ -19,9 +19,9 @@
     </button>
 
     <!-- Wordmark -->
-    <p class="font-display text-ink text-lg font-medium mb-7" aria-label="ilook.hot">
-      ilook<span class="text-coral" aria-hidden="true">.</span>hot
-    </p>
+    <div class="mb-7">
+      <img src="logo.png" alt="ilook.hot" class="h-10 w-auto rounded-lg">
+    </div>
 
     <!-- Tabs -->
     <div class="flex gap-1 mb-7 bg-soft-stone rounded-full p-1" role="tablist" aria-label="Authentication options">
@@ -30,7 +30,7 @@
         role="tab"
         [attr.aria-selected]="activeTab() === 'signup'"
         [class]="activeTab() === 'signup'
-          ? 'flex-1 text-sm font-medium py-2 px-4 rounded-full bg-white text-ink shadow-sm transition-all'
+          ? 'flex-1 text-sm font-medium py-2 px-4 rounded-full bg-coral text-white shadow-sm transition-all'
           : 'flex-1 text-sm py-2 px-4 rounded-full text-muted hover:text-ink transition-all'"
         (click)="activeTab.set('signup'); errorMsg.set(null)"
       >
@@ -41,7 +41,7 @@
         role="tab"
         [attr.aria-selected]="activeTab() === 'signin'"
         [class]="activeTab() === 'signin'
-          ? 'flex-1 text-sm font-medium py-2 px-4 rounded-full bg-white text-ink shadow-sm transition-all'
+          ? 'flex-1 text-sm font-medium py-2 px-4 rounded-full bg-coral text-white shadow-sm transition-all'
           : 'flex-1 text-sm py-2 px-4 rounded-full text-muted hover:text-ink transition-all'"
         (click)="activeTab.set('signin'); errorMsg.set(null)"
       >
