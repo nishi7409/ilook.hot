@@ -308,7 +308,7 @@ router.patch('/:id/finish', async (c) => {
 
   const user = c.get('user')!;
   const id = c.req.param('id');
-  const body = await c.req.json<{ durationSeconds?: number }>().catch(() => ({}));
+  const body = await c.req.json<{ durationSeconds?: number }>().catch(() => ({} as { durationSeconds?: number }));
 
   const existing = await db
     .select()
