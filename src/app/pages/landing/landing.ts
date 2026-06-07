@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { NgOptimizedImage } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AuthModal } from '../../components/auth-modal/auth-modal';
 
@@ -11,7 +12,7 @@ interface MockCell {
 
 @Component({
   selector: 'app-landing',
-  imports: [AuthModal],
+  imports: [AuthModal, NgOptimizedImage],
   templateUrl: './landing.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

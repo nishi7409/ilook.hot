@@ -6,7 +6,7 @@
 <header class="sticky top-0 z-40 bg-primary/95 backdrop-blur-sm border-b border-white/5">
   <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
     <a href="/" aria-label="ilook.hot home">
-      <img src="logo.png" alt="ilook.hot" class="h-9 w-auto rounded-lg">
+      <img ngSrc="logo.png" alt="ilook.hot" width="66" height="36" class="h-9 w-auto rounded-lg">
     </a>
 
     <nav class="hidden md:flex items-center gap-8" aria-label="Main navigation">
@@ -318,7 +318,7 @@
                 }
                 <!-- ilook.hot icon -->
                 <div class="aspect-square rounded-2xl overflow-hidden shadow-lg">
-                  <img src="logo.png" alt="ilook.hot" class="w-full h-full object-cover">
+                  <img src="logo.png" alt="ilook.hot" width="1408" height="768" class="w-full h-full object-cover">
                 </div>
               </div>
               @for (row of [1,2,3]; track row) {
@@ -637,11 +637,11 @@
 <!-- Open source band -->
 <section
   id="open-source"
-  class="bg-deep-green text-white py-24 px-6 rounded-[22px] mx-4 md:mx-8 mb-6"
+  class="bg-deep-green dark:bg-[#0d1f17] text-white py-24 px-6 rounded-[22px] mx-4 md:mx-8 mb-6"
   aria-labelledby="oss-heading"
 >
   <div class="max-w-3xl mx-auto text-center">
-    <p class="text-pale-green/50 text-[11px] font-medium tracking-[0.2em] uppercase mb-6 font-body">100% open source</p>
+    <p class="text-pale-green/50 dark:text-white/30 text-[11px] font-medium tracking-[0.2em] uppercase mb-6 font-body">100% open source</p>
     <h2
       id="oss-heading"
       class="font-display font-medium mb-6 text-[clamp(2rem,5vw,4rem)] tracking-[-0.025em] leading-[1.1]"
