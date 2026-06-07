@@ -1,5 +1,8 @@
 @import 'tailwindcss';
 
+/* Wire the dark: variant to the .dark class on <html> instead of OS preference */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --font-display: 'Space Grotesk', 'Inter', ui-sans-serif, system-ui;
   --font-body: 'Inter', Arial, ui-sans-serif, system-ui;
@@ -21,6 +24,56 @@
   --color-coral: #ff7759;
   --color-coral-soft: #ffad9b;
   --color-error: #b30000;
+}
+
+/* ── Color scheme: controls browser-native UI (inputs, scrollbars, etc.) ── */
+:root {
+  color-scheme: light;
+}
+
+/* ── Dark mode overrides ────────────────────────────────────────────────── */
+.dark {
+  color-scheme: dark;
+  --color-canvas: #13131a;
+  --color-ink: #e8e8ec;
+  --color-soft-stone: #1e1e26;
+  --color-pale-green: #0b2820;
+  --color-hairline: #2e2e3a;
+  --color-border-light: #2a2a35;
+  --color-card-border: #2a2a35;
+  --color-muted: #72728a;
+  --color-slate: #8888a2;
+  --color-body-muted: #a0a0b2;
+  --color-deep-green: #4ade80;
+  --color-error: #f87171;
+}
+
+/* ── Dark: calendar overrides ───────────────────────────────────────────── */
+.dark .cal-container .cal-header {
+  background: #1e1e26;
+  border-bottom-color: #2a2a35;
+}
+.dark .cal-container .cal-days .cal-cell-row {
+  border-bottom-color: #2a2a35;
+}
+.dark .cal-container .cal-month-cell {
+  border-right-color: #2a2a35;
+}
+.dark .cal-container .cal-out-month {
+  background: rgba(30, 30, 38, 0.7);
+}
+.dark .cal-container .cal-day-number {
+  color: #e8e8ec;
+}
+.dark .cal-container .cal-month-view .cal-cell-row:hover,
+.dark .cal-container .cal-month-view .cal-cell-row .cal-cell:hover,
+.dark .cal-container .cal-month-view .cal-cell-row .cal-cell.cal-has-events:hover {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+}
+.dark .cal-container .cal-open-day-events {
+  background: #1e1e26;
+  box-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.4);
+  color: #e8e8ec;
 }
 
 *,

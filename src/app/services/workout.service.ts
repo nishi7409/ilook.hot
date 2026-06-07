@@ -1,137 +1,262 @@
-import { computed, Injectable, signal } from '@angular/core';
+import { computed, effect, inject, Injectable, PLATFORM_ID, signal } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
 import { format } from 'date-fns';
-import type { Exercise } from '../models/program.model';
+import type { ProgramExercise, WeightUnit } from '../models/program.model';
 import type { ExerciseRecord, SessionExercise, WorkoutSession, WorkoutSet } from '../models/workout.model';
-import { EXERCISE_LIBRARY } from './exercise-library';
-
-const ex = (id: string) => EXERCISE_LIBRARY.find((e) => e.id === id)!;
-
-function makeSet(n: number, reps: number, weight: number, pr = false): WorkoutSet {
-  return { id: `s-${Date.now()}-${n}`, setNumber: n, reps, weight, weightUnit: 'lbs', completed: true, isPersonalRecord: pr };
-}
-
-const MOCK_SESSIONS: WorkoutSession[] = [
-  {
-    id: 'sess-1',
-    date: '2026-05-29',
-    name: 'Chest',
-    programDayId: 'day-chest',
-    completed: true,
-    durationSeconds: 3720,
-    exercises: [
-      { id: 'se-1', exercise: ex('bench'), notes: '', sets: [makeSet(1, 5, 175), makeSet(2, 5, 185), makeSet(3, 5, 185), makeSet(4, 5, 185, true)] },
-      { id: 'se-2', exercise: ex('incline-db'), notes: '', sets: [makeSet(1, 10, 65), makeSet(2, 10, 70), makeSet(3, 8, 70)] },
-      { id: 'se-3', exercise: ex('cable-fly'), notes: '', sets: [makeSet(1, 12, 40), makeSet(2, 12, 40), makeSet(3, 10, 45)] },
-      { id: 'se-4', exercise: ex('pushup'), notes: '', sets: [makeSet(1, 20, 0), makeSet(2, 17, 0), makeSet(3, 15, 0)] },
-    ],
-  },
-  {
-    id: 'sess-2',
-    date: '2026-05-27',
-    name: 'Arms & Shoulders',
-    programDayId: 'day-arms',
-    completed: true,
-    durationSeconds: 3300,
-    exercises: [
-      { id: 'se-5', exercise: ex('ohp'), notes: '', sets: [makeSet(1, 5, 110), makeSet(2, 5, 115), makeSet(3, 5, 115), makeSet(4, 5, 115)] },
-      { id: 'se-6', exercise: ex('lateral-raise'), notes: '', sets: [makeSet(1, 15, 20), makeSet(2, 15, 20), makeSet(3, 12, 22)] },
-      { id: 'se-7', exercise: ex('barbell-curl'), notes: '', sets: [makeSet(1, 10, 85), makeSet(2, 10, 85), makeSet(3, 8, 85)] },
-      { id: 'se-8', exercise: ex('tricep-pushdown'), notes: '', sets: [makeSet(1, 12, 60), makeSet(2, 12, 60), makeSet(3, 10, 65)] },
-    ],
-  },
-  {
-    id: 'sess-3',
-    date: '2026-05-26',
-    name: 'Legs',
-    programDayId: 'day-legs',
-    completed: true,
-    durationSeconds: 4200,
-    exercises: [
-      { id: 'se-9', exercise: ex('squat'), notes: '', sets: [makeSet(1, 5, 215), makeSet(2, 5, 225), makeSet(3, 5, 225), makeSet(4, 5, 225)] },
-      { id: 'se-10', exercise: ex('rdl'), notes: '', sets: [makeSet(1, 8, 185), makeSet(2, 8, 185), makeSet(3, 8, 185)] },
-      { id: 'se-11', exercise: ex('leg-press'), notes: '', sets: [makeSet(1, 12, 270), makeSet(2, 12, 270), makeSet(3, 12, 270)] },
-    ],
-  },
-];
 
 @Injectable({ providedIn: 'root' })
 export class WorkoutService {
-  private readonly _sessions = signal<WorkoutSession[]>(MOCK_SESSIONS);
+  private readonly http = inject(HttpClient);
+  private readonly platformId = inject(PLATFORM_ID);
+
+  private readonly _sessions = signal<WorkoutSession[]>([]);
   private readonly _activeSession = signal<WorkoutSession | null>(null);
   private readonly _sessionStart = signal<number | null>(null);
 
   readonly sessions = this._sessions.asReadonly();
   readonly activeSession = this._activeSession.asReadonly();
   readonly hasActiveSession = computed(() => this._activeSession() !== null);
+  readonly recentSessions = computed(() =>
+    [...this._sessions()].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 20),
+  );
 
-  readonly recentSessions = computed(() => [...this._sessions()].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 10));
+  constructor() {
+    if (isPlatformBrowser(this.platformId)) {
+      this.loadSessions();
+      this.resumeActiveSession();
+    }
+  }
 
+  private loadSessions(): void {
+    this.http.get<WorkoutSession[]>('/api/workouts').subscribe({
+      next: (sessions) => this._sessions.set(sessions),
+      error: (err) => console.error('Failed to load workout sessions', err),
+    });
+  }
+
+  private resumeActiveSession(): void {
+    this.http.get<WorkoutSession | null>('/api/workouts/active').subscribe({
+      next: (session) => {
+        if (session) {
+          this._activeSession.set(session);
+          this._sessionStart.set(Date.now());
+        }
+      },
+      error: () => {},
+    });
+  }
+
+  /** Best-weight record per session for an exercise — used for PR chart + pre-fill */
   exerciseHistory(exerciseId: string): ExerciseRecord[] {
     const records: ExerciseRecord[] = [];
     for (const session of this._sessions()) {
       for (const se of session.exercises) {
         if (se.exercise.id !== exerciseId) continue;
-        const best = se.sets.filter((s) => s.completed).reduce<WorkoutSet | null>((max, s) => (!max || s.weight > max.weight ? s : max), null);
-        if (best) records.push({ exerciseId, weight: best.weight, weightUnit: best.weightUnit, reps: best.reps, date: session.date });
+        const best = se.sets
+          .filter((s) => s.completed)
+          .reduce<WorkoutSet | null>(
+            (max, s) => (!max || s.weight > max.weight ? s : max),
+            null,
+          );
+        if (best) {
+          records.push({
+            exerciseId,
+            weight: best.weight,
+            weightUnit: best.weightUnit,
+            reps: best.reps,
+            date: session.date,
+          });
+        }
       }
     }
     return records.sort((a, b) => a.date.localeCompare(b.date));
   }
 
-  startSession(name: string, exercises: Exercise[]): void {
-    const session: WorkoutSession = {
-      id: `sess-${Date.now()}`,
-      date: format(new Date(), 'yyyy-MM-dd'),
-      name,
-      completed: false,
-      exercises: exercises.map((e, i) => ({
-        id: `se-${Date.now()}-${i}`,
-        exercise: e,
-        sets: [],
-      })),
-    };
-    this._activeSession.set(session);
-    this._sessionStart.set(Date.now());
+  /** All exercises that have at least one logged set, with best weight */
+  readonly exercisePRs = computed(() => {
+    const seenIds = new Set<string>();
+    const results: { exercise: SessionExercise['exercise']; weight: number; unit: WeightUnit; date: string; gain: number }[] = [];
+    for (const session of this._sessions()) {
+      for (const se of session.exercises) {
+        if (seenIds.has(se.exercise.id)) continue;
+        const history = this.exerciseHistory(se.exercise.id);
+        if (!history.length) continue;
+        seenIds.add(se.exercise.id);
+        const best = history.at(-1)!;
+        const prev = history.length > 1 ? history[history.length - 2] : null;
+        results.push({
+          exercise: se.exercise,
+          weight: best.weight,
+          unit: best.weightUnit as WeightUnit,
+          date: best.date,
+          gain: prev ? best.weight - prev.weight : 0,
+        });
+      }
+    }
+    return results.sort((a, b) => b.weight - a.weight);
+  });
+
+  startSession(name: string, exercises: ProgramExercise[], programDayId?: string): void {
+    const date = format(new Date(), 'yyyy-MM-dd');
+    this.http
+      .post<WorkoutSession>('/api/workouts', {
+        date,
+        name,
+        programDayId,
+        exercises: exercises.map((e) => ({
+          exerciseId: e.exerciseId,
+          exerciseName: e.exercise.name,
+          muscleGroups: e.exercise.muscleGroups,
+          category: e.exercise.category,
+          targetSets: e.sets,
+          targetReps: e.reps,
+        })),
+      })
+      .subscribe({
+        next: (session) => {
+          this._activeSession.set(session);
+          this._sessionStart.set(Date.now());
+        },
+        error: (err) => console.error('Failed to start session', err),
+      });
   }
 
-  addSet(sessionExerciseId: string, reps: number, weight: number, weightUnit: 'lbs' | 'kg' = 'lbs'): void {
-    this._activeSession.update((session) => {
-      if (!session) return session;
+  logSet(
+    sessionId: string,
+    sessionExerciseId: string,
+    reps: number,
+    weight: number,
+    weightUnit: WeightUnit = 'lbs',
+    onError?: () => void,
+  ): void {
+    // Optimistic update
+    const tempSet: WorkoutSet = {
+      id: `temp-${Date.now()}`,
+      setNumber: 0,
+      reps,
+      weight,
+      weightUnit,
+      completed: true,
+      isPersonalRecord: false,
+    };
+    this._activeSession.update((s) => {
+      if (!s) return s;
       return {
-        ...session,
-        exercises: session.exercises.map((se) => {
-          if (se.id !== sessionExerciseId) return se;
-          const n = se.sets.length + 1;
-          const prevBest = this.exerciseHistory(se.exercise.id).at(-1);
-          const isPR = !!prevBest && weight > prevBest.weight;
-          const newSet: WorkoutSet = {
-            id: `s-${Date.now()}`,
-            setNumber: n,
-            reps,
-            weight,
-            weightUnit,
-            completed: true,
-            isPersonalRecord: isPR,
-            completedAt: new Date().toISOString(),
-          };
-          return { ...se, sets: [...se.sets, newSet] };
-        }),
+        ...s,
+        exercises: s.exercises.map((se) =>
+          se.id === sessionExerciseId
+            ? { ...se, sets: [...se.sets, { ...tempSet, setNumber: se.sets.length + 1 }] }
+            : se,
+        ),
       };
     });
+
+    // Persist
+    this.http
+      .post<WorkoutSet>(
+        `/api/workouts/${sessionId}/exercises/${sessionExerciseId}/sets`,
+        { reps, weight, weightUnit },
+      )
+      .subscribe({
+        next: (realSet) => {
+          // Replace temp set with real one
+          this._activeSession.update((s) => {
+            if (!s) return s;
+            return {
+              ...s,
+              exercises: s.exercises.map((se) =>
+                se.id === sessionExerciseId
+                  ? {
+                      ...se,
+                      sets: se.sets.map((st) =>
+                        st.id === tempSet.id ? realSet : st,
+                      ),
+                    }
+                  : se,
+              ),
+            };
+          });
+        },
+        error: (err) => {
+          console.error('Failed to log set', err);
+          // Roll back optimistic update in active session
+          this._activeSession.update((s) => {
+            if (!s) return s;
+            return {
+              ...s,
+              exercises: s.exercises.map((se) =>
+                se.id === sessionExerciseId
+                  ? { ...se, sets: se.sets.filter((st) => st.id !== tempSet.id) }
+                  : se,
+              ),
+            };
+          });
+          // Notify caller so draft state can be rolled back too
+          onError?.();
+        },
+      });
   }
 
   finishSession(): void {
     const session = this._activeSession();
     if (!session) return;
-    const duration = this._sessionStart() ? Math.round((Date.now() - this._sessionStart()!) / 1000) : undefined;
-    const completed = { ...session, completed: true, durationSeconds: duration };
-    this._sessions.update((s) => [completed, ...s]);
+    const duration = this._sessionStart()
+      ? Math.round((Date.now() - this._sessionStart()!) / 1000)
+      : undefined;
+
+    // Optimistic: immediately move the active session (with all logged sets) into
+    // _sessions. This ensures exerciseHistory() returns correct data for the next
+    // session's prefill, even if set POST requests are still in-flight.
+    const optimistic: WorkoutSession = { ...session, completed: true, durationSeconds: duration ?? undefined };
+    this._sessions.update((s) => [optimistic, ...s]);
     this._activeSession.set(null);
     this._sessionStart.set(null);
+
+    this.http
+      .patch<WorkoutSession>(`/api/workouts/${session.id}/finish`, {
+        durationSeconds: duration,
+      })
+      .subscribe({
+        next: (confirmed) => {
+          // Swap the optimistic entry with the server-confirmed one.
+          // We preserve the optimistic sets if the server response is missing
+          // any (in-flight saves that completed after the PATCH).
+          this._sessions.update((s) =>
+            s.map((sess) => {
+              if (sess.id !== confirmed.id) return sess;
+              // Merge: keep whichever exercises have more sets (optimistic wins ties)
+              const mergedExercises = confirmed.exercises.map((ce) => {
+                const oe = optimistic.exercises.find((e) => e.id === ce.id);
+                return oe && oe.sets.length > ce.sets.length ? oe : ce;
+              });
+              return { ...confirmed, exercises: mergedExercises };
+            }),
+          );
+        },
+        error: (err) => {
+          console.error('Failed to finish session', err);
+          // Rollback: remove optimistic entry and restore active session
+          this._sessions.update((s) => s.filter((sess) => sess.id !== session.id));
+          this._activeSession.set(session);
+          this._sessionStart.set(duration != null ? Date.now() - duration * 1000 : Date.now());
+        },
+      });
   }
 
   discardSession(): void {
+    const session = this._activeSession();
+    if (!session) return;
     this._activeSession.set(null);
     this._sessionStart.set(null);
+    this.http
+      .delete(`/api/workouts/${session.id}`)
+      .subscribe({ error: (err) => console.error('Failed to discard session', err) });
+  }
+
+  formatDuration(seconds?: number): string {
+    if (!seconds) return '—';
+    const m = Math.floor(seconds / 60);
+    return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`;
   }
 }

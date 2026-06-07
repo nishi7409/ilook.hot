@@ -14,6 +14,8 @@ export interface WorkoutSet {
 export interface SessionExercise {
   id: string;
   exercise: Exercise;
+  targetSets: number;
+  targetReps: number;
   sets: WorkoutSet[];
   notes?: string;
 }

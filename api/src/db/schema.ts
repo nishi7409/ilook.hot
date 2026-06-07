@@ -1,4 +1,4 @@
-import { pgTable, text, boolean, integer, timestamp, numeric } from 'drizzle-orm/pg-core';
+import { pgTable, text, boolean, integer, timestamp, numeric, uniqueIndex } from 'drizzle-orm/pg-core';
 
 // Users (Lucia requires id: text primary key)
 export const users = pgTable('users', {
@@ -47,11 +47,22 @@ export const programDayExercises = pgTable('program_day_exercises', {
   muscleGroups: text('muscle_groups').array().notNull().default([]),
   category: text('category').notNull(),
   sets: integer('sets').default(3).notNull(),
-  reps: text('reps').default('8-12').notNull(),
+  reps: integer('reps').default(10).notNull(),
   weight: numeric('weight', { precision: 8, scale: 2 }).default('0').notNull(),
   weightUnit: text('weight_unit').default('lbs').notNull(),
   restSeconds: integer('rest_seconds'),
   notes: text('notes'),
+  sortOrder: integer('sort_order').default(0).notNull(),
+});
+
+// Exercise reference library (seeded at startup)
+export const exercises = pgTable('exercises', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  muscleGroups: text('muscle_groups').array().notNull().default([]),
+  category: text('category').notNull(), // compound | isolation | cardio | bodyweight
+  group: text('group').notNull(), // Chest | Shoulders | Biceps | etc.
+  topRated: boolean('top_rated').default(false).notNull(),
   sortOrder: integer('sort_order').default(0).notNull(),
 });
 
@@ -67,4 +78,44 @@ export const daySchedules = pgTable('day_schedules', {
   endDate: text('end_date'), // yyyy-MM-dd, nullable
   excludedDates: text('excluded_dates').array().default([]),
   createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// Workout sessions
+export const workoutSessions = pgTable('workout_sessions', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  date: text('date').notNull(), // yyyy-MM-dd
+  name: text('name').notNull(),
+  programDayId: text('program_day_id'),
+  completed: boolean('completed').default(false).notNull(),
+  durationSeconds: integer('duration_seconds'),
+  notes: text('notes'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// Workout session exercises
+export const workoutSessionExercises = pgTable('workout_session_exercises', {
+  id: text('id').primaryKey(),
+  sessionId: text('session_id').notNull().references(() => workoutSessions.id, { onDelete: 'cascade' }),
+  exerciseId: text('exercise_id').notNull(),
+  exerciseName: text('exercise_name').notNull(),
+  muscleGroups: text('muscle_groups').array().notNull().default([]),
+  category: text('category').notNull(),
+  targetSets: integer('target_sets').default(3).notNull(),
+  targetReps: integer('target_reps').default(10).notNull(),
+  notes: text('notes'),
+  sortOrder: integer('sort_order').default(0).notNull(),
+});
+
+// Workout sets
+export const workoutSets = pgTable('workout_sets', {
+  id: text('id').primaryKey(),
+  sessionExerciseId: text('session_exercise_id').notNull().references(() => workoutSessionExercises.id, { onDelete: 'cascade' }),
+  setNumber: integer('set_number').notNull(),
+  reps: integer('reps').notNull(),
+  weight: numeric('weight', { precision: 8, scale: 2 }).default('0').notNull(),
+  weightUnit: text('weight_unit').default('lbs').notNull(),
+  completed: boolean('completed').default(true).notNull(),
+  isPersonalRecord: boolean('is_personal_record').default(false).notNull(),
+  completedAt: text('completed_at'),
 });

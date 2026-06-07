@@ -12,6 +12,17 @@
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
 </head>
 <body>
+  <!-- Apply saved theme before Angular boots to avoid flash -->
+  <script>
+    try {
+      var t = localStorage.getItem('ilook-theme');
+      var dark = t ? t === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (dark) {
+        document.documentElement.classList.add('dark');
+        document.documentElement.style.colorScheme = 'dark';
+      }
+    } catch (e) {}
+  </script>
   <app-root></app-root>
 </body>
 </html>

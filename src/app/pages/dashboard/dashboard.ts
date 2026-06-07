@@ -3,13 +3,15 @@ import { DecimalPipe } from '@angular/common';
 import { NgIconComponent, provideIcons } from '@ng-icons/core';
 import {
   heroArrowTrendingUp,
+  heroBolt,
   heroCheckCircle,
   heroFire,
   heroPlayCircle,
+  heroTrophy,
 } from '@ng-icons/heroicons/outline';
 import { NgxEchartsDirective } from 'ngx-echarts';
 import type { EChartsOption } from 'echarts';
-import { format } from 'date-fns';
+import { addDays, format } from 'date-fns';
 import { NutritionService } from '../../services/nutrition.service';
 import { ProgramService } from '../../services/program.service';
 import { WorkoutService } from '../../services/workout.service';
@@ -18,7 +20,7 @@ import { RouterLink } from '@angular/router';
 @Component({
   selector: 'app-dashboard',
   imports: [NgxEchartsDirective, NgIconComponent, RouterLink, DecimalPipe],
-  providers: [provideIcons({ heroCheckCircle, heroFire, heroArrowTrendingUp, heroPlayCircle })],
+  providers: [provideIcons({ heroCheckCircle, heroFire, heroArrowTrendingUp, heroPlayCircle, heroBolt, heroTrophy })],
   templateUrl: './dashboard.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-1 flex-col overflow-hidden min-w-0' },
@@ -39,19 +41,30 @@ export class Dashboard {
   protected readonly recentSessions = this.workoutService.recentSessions;
 
   protected readonly weekSchedule = computed(() => {
-    const program = this.programService.activeProgram();
-    if (!program?.startDate) return [];
-    const startOfWeek = new Date();
-    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay() + 1); // Monday
+    const schedEvents = this.programService.dayScheduleCalendarEvents();
+    const legacyEvents = this.programService.calendarEvents();
+    const programs = this.programService.programs();
+    const todayKey = format(new Date(), 'yyyy-MM-dd');
+    const now = new Date();
+    const monday = addDays(now, -((now.getDay() + 6) % 7));
+
     return Array.from({ length: 7 }, (_, i) => {
-      const date = new Date(startOfWeek);
-      date.setDate(startOfWeek.getDate() + i);
+      const date = addDays(monday, i);
       const dayKey = format(date, 'yyyy-MM-dd');
-      const today = format(new Date(), 'yyyy-MM-dd');
-      const startDate = new Date(program.startDate!);
-      const diff = Math.floor((date.getTime() - startDate.getTime()) / 86400000);
-      const idx = ((diff % program.days.length) + program.days.length) % program.days.length;
-      const programDay = program.days[idx];
+
+      // New schedule system first
+      let programDay: { name: string; isRest: boolean } | null = null;
+      const schedEvent = schedEvents.find((e) => format(e.date, 'yyyy-MM-dd') === dayKey);
+      if (schedEvent) {
+        const prog = programs.find((p) => p.id === schedEvent.programId);
+        programDay = prog?.days.find((d) => d.id === schedEvent.dayId) ?? null;
+      }
+      // Legacy startDate fallback
+      if (!programDay) {
+        const legEvent = legacyEvents.find((e) => format(e.date, 'yyyy-MM-dd') === dayKey);
+        if (legEvent) programDay = legEvent.day;
+      }
+
       const session = this.workoutService.sessions().find((s) => s.date === dayKey);
       return {
         day: format(date, 'EEE'),
@@ -59,26 +72,54 @@ export class Dashboard {
         focus: programDay?.name ?? '—',
         isRest: programDay?.isRest ?? false,
         done: !!session?.completed,
-        isToday: dayKey === today,
-        isPast: date < new Date() && dayKey !== today,
+        isToday: dayKey === todayKey,
+        isPast: date < new Date() && dayKey !== todayKey,
       };
     });
   });
 
   protected readonly daysLoggedThisWeek = computed(() => this.weekSchedule().filter((d) => d.done).length);
 
-  protected readonly squatStats = computed(() => {
-    const history = this.workoutService.sessions()
-      .flatMap((s) => s.exercises.filter((e) => e.exercise.id === 'squat').map((e) => ({
-        date: s.date,
-        weight: Math.max(...e.sets.map((st) => st.weight), 0),
-      })))
-      .filter((r) => r.weight > 0)
-      .sort((a, b) => a.date.localeCompare(b.date));
-    if (!history.length) return null;
-    const start = history[0].weight;
-    const current = history[history.length - 1].weight;
-    return { start, current, gain: current - start };
+  protected readonly sessionsThisWeek = computed(() => {
+    const monday = (() => {
+      const now = new Date();
+      return addDays(now, -((now.getDay() + 6) % 7));
+    })();
+    const sunday = addDays(monday, 6);
+    const monKey = format(monday, 'yyyy-MM-dd');
+    const sunKey = format(sunday, 'yyyy-MM-dd');
+    return this.workoutService.sessions().filter(
+      (s) => s.completed && s.date >= monKey && s.date <= sunKey
+    ).length;
+  });
+
+  protected readonly currentStreak = computed(() => {
+    const sessions = this.workoutService.sessions().filter((s) => s.completed);
+    if (!sessions.length) return 0;
+    const dates = new Set(sessions.map((s) => s.date));
+    let streak = 0;
+    let cursor = new Date();
+    // walk back from today
+    for (let i = 0; i < 365; i++) {
+      const key = format(addDays(cursor, -i), 'yyyy-MM-dd');
+      if (dates.has(key)) {
+        streak++;
+      } else if (i > 0) {
+        break;
+      }
+    }
+    return streak;
+  });
+
+  /** Top exercise by total volume (sets × weight) — drives the progress card */
+  protected readonly topExerciseStats = computed(() => {
+    const prs = this.workoutService.exercisePRs();
+    if (!prs.length) return null;
+    const top = prs[0];
+    const history = this.workoutService.exerciseHistory(top.exercise.id);
+    if (history.length < 2) return { name: top.exercise.name, current: top.weight, unit: top.unit, gain: 0, history };
+    const gain = history[history.length - 1].weight - history[0].weight;
+    return { name: top.exercise.name, current: top.weight, unit: top.unit, gain, history };
   });
 
   protected readonly caloriePercent = computed(() => {
@@ -133,16 +174,10 @@ export class Dashboard {
   });
 
   protected readonly squatChartOption = computed<EChartsOption>(() => {
-    const history = this.workoutService.sessions()
-      .flatMap((s) => s.exercises.filter((e) => e.exercise.id === 'squat').map((e) => ({
-        date: s.date,
-        weight: Math.max(...e.sets.map((st) => st.weight), 0),
-      })))
-      .filter((r) => r.weight > 0)
-      .sort((a, b) => a.date.localeCompare(b.date));
-
-    const labels = history.map((r) => format(new Date(r.date), 'MMM d'));
-    const data = history.map((r) => r.weight);
+    const stats = this.topExerciseStats();
+    const historyRecords = stats?.history ?? [];
+    const labels = historyRecords.map((r) => format(new Date(r.date + 'T00:00:00'), 'MMM d'));
+    const data = historyRecords.map((r) => r.weight);
 
     return {
       grid: { top: 12, right: 12, bottom: 28, left: 52 },

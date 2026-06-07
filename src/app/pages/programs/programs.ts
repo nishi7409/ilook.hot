@@ -5,19 +5,22 @@ import { NgIconComponent, provideIcons } from '@ng-icons/core';
 import {
   heroArrowLeft,
   heroArrowRight,
+  heroBars2,
   heroBolt,
   heroCalendarDays,
   heroCheck,
   heroChevronLeft,
   heroChevronRight,
+  heroDocumentDuplicate,
   heroPencilSquare,
   heroPlus,
+  heroSparkles,
   heroTrash,
   heroXMark,
 } from '@ng-icons/heroicons/outline';
 import type { CalendarEvent } from 'angular-calendar';
 import { CalendarModule, CalendarView } from 'angular-calendar';
-import { addDays, addMonths, differenceInDays, format, startOfDay, subMonths } from 'date-fns';
+import { addDays, addMonths, addWeeks, differenceInDays, format, startOfDay, subMonths } from 'date-fns';
 import type {
   CalendarWorkoutEvent,
   DayScheduleCalendarEvent,
@@ -26,7 +29,8 @@ import type {
   PendingExerciseSchedule,
   ProgramExercise,
 } from '../../models/program.model';
-import { EXERCISE_LIBRARY } from '../../services/exercise-library';
+import { EXERCISE_GROUPS, EXERCISE_LIBRARY } from '../../services/exercise-library';
+import { ExerciseService } from '../../services/exercise.service';
 import { ProgramService } from '../../services/program.service';
 import { AuthService } from '../../services/auth.service';
 
@@ -44,7 +48,8 @@ type CalMeta =
   providers: [
     provideIcons({
       heroPlus, heroCheck, heroTrash, heroPencilSquare, heroCalendarDays,
-      heroBolt, heroChevronLeft, heroChevronRight, heroXMark, heroArrowLeft, heroArrowRight,
+      heroBolt, heroChevronLeft, heroChevronRight, heroXMark, heroArrowLeft, heroArrowRight, heroSparkles,
+      heroDocumentDuplicate, heroBars2,
     }),
   ],
   templateUrl: './programs.html',
@@ -56,7 +61,10 @@ export class Programs {
   protected readonly encodeURIComponent = encodeURIComponent;
   protected readonly programService = inject(ProgramService);
   protected readonly authService = inject(AuthService);
+  protected readonly exerciseService = inject(ExerciseService);
+  /** @deprecated — kept for any legacy references, exercises now come from exerciseService */
   protected readonly exerciseLibrary = EXERCISE_LIBRARY;
+  protected readonly exerciseGroups = EXERCISE_GROUPS;
   protected readonly cdr = inject(ChangeDetectorRef);
   private readonly document = inject(DOCUMENT);
 
@@ -73,11 +81,12 @@ export class Programs {
   protected readonly selectedDayId = signal<string | null>(null);
   protected readonly showAddExercise = signal(false);
   protected readonly editingExerciseId = signal<string | null>(null);
-  protected readonly editDraft = signal<{ sets: number; reps: string }>({ sets: 3, reps: '8-12' });
+  protected readonly editDraft = signal<{ sets: number; reps: number }>({ sets: 3, reps: 10 });
   protected readonly renamingDayId = signal<string | null>(null);
   protected readonly renameDraft = signal('');
   protected readonly showProgramList = signal(false);
   protected readonly showNewProgram = signal(false);
+  protected readonly showTemplateModal = signal(false);
   protected readonly newProgramName = signal('');
   protected readonly exerciseSearch = signal('');
   protected readonly calendarDate = signal(new Date());
@@ -109,6 +118,64 @@ export class Programs {
   protected readonly showICalModal = signal(false);
   protected readonly iCalCopied = signal(false);
 
+  // ── Delete day modal ──────────────────────────────────────────────────────
+  /** Day pending deletion — set when delete button clicked */
+  protected readonly deleteDayTarget = signal<{ programId: string; dayId: string; dayName: string } | null>(null);
+  /** Which day to reassign schedules to (null = remove from calendar) */
+  protected readonly deleteDayReassignId = signal<string | null>(null);
+
+  // ── Delete program confirmation ───────────────────────────────────────────
+  protected readonly confirmDeleteProgram = signal<string | null>(null);
+
+  // ── Rename program ────────────────────────────────────────────────────────
+  protected readonly renamingProgramId = signal<string | null>(null);
+  protected readonly renameProgramDraft = signal('');
+
+  protected openRenameProgram(id: string, currentName: string): void {
+    this.renamingProgramId.set(id);
+    this.renameProgramDraft.set(currentName);
+  }
+
+  protected commitRenameProgram(): void {
+    const id = this.renamingProgramId();
+    if (!id) return;
+    this.programService.renameProgram(id, this.renameProgramDraft());
+    this.renamingProgramId.set(null);
+  }
+
+  protected readonly deleteDayHasSchedules = computed(() => {
+    const target = this.deleteDayTarget();
+    if (!target) return false;
+    return this.programService.daySchedules().some((s) => s.dayId === target.dayId);
+  });
+
+  protected readonly deleteDayOtherDays = computed(() => {
+    const target = this.deleteDayTarget();
+    if (!target) return [];
+    const prog = this.programService.programs().find((p) => p.id === target.programId);
+    if (!prog) return [];
+    return prog.days.filter((d) => d.id !== target.dayId && !d.isRest);
+  });
+
+  protected openDeleteDay(programId: string, dayId: string, dayName: string): void {
+    this.deleteDayTarget.set({ programId, dayId, dayName });
+    this.deleteDayReassignId.set(null);
+  }
+
+  protected confirmDeleteDay(): void {
+    const target = this.deleteDayTarget();
+    if (!target) return;
+    const reassignToDayId = this.deleteDayReassignId() ?? undefined;
+    this.programService.deleteDay(target.programId, target.dayId, reassignToDayId ? { reassignToDayId } : undefined);
+    if (this.selectedDayId() === target.dayId) this.selectedDayId.set(null);
+    this.deleteDayTarget.set(null);
+  }
+
+  /** Remove a single saved DayScheduleEntry from the calendar sidebar. */
+  protected unscheduleDay(scheduleId: string): void {
+    this.programService.clearDaySchedule(scheduleId);
+  }
+
   copyICalUrl(): void {
     const url = this.iCalUrl();
     if (!url) return;
@@ -131,13 +198,121 @@ export class Programs {
     return program.days.find((d) => d.id === dayId) ?? program.days[0] ?? null;
   });
 
-  protected readonly filteredExercises = computed(() => {
-    const q = this.exerciseSearch().toLowerCase().trim();
-    if (!q) return EXERCISE_LIBRARY;
-    return EXERCISE_LIBRARY.filter(
-      (e) => e.name.toLowerCase().includes(q) || e.muscleGroups.some((m) => m.toLowerCase().includes(q)),
-    );
+  protected readonly filteredExercises = computed(() =>
+    this.exerciseService.search(this.exerciseSearch()),
+  );
+
+  /** Total sets per primary muscle group across all non-rest days */
+  protected readonly volumeSummary = computed(() => {
+    const prog = this.selectedProgram();
+    if (!prog) return [];
+    const totals = new Map<string, number>();
+    for (const day of prog.days) {
+      if (day.isRest) continue;
+      for (const ex of day.exercises) {
+        const primary = ex.exercise.muscleGroups[0];
+        if (!primary) continue;
+        totals.set(primary, (totals.get(primary) ?? 0) + ex.sets);
+      }
+    }
+    if (totals.size === 0) return [];
+    const max = Math.max(...totals.values());
+    return Array.from(totals.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([group, sets]) => ({ group, sets, pct: Math.round((sets / max) * 100) }));
   });
+
+  // ── Description editing ───────────────────────────────────────────────────
+  protected readonly editingDescription = signal(false);
+  protected readonly descriptionDraft = signal('');
+
+  protected startEditDescription(): void {
+    this.descriptionDraft.set(this.selectedProgram()?.description ?? '');
+    this.editingDescription.set(true);
+  }
+
+  protected saveDescription(): void {
+    const prog = this.selectedProgram();
+    if (!prog) return;
+    this.programService.updateDescription(prog.id, this.descriptionDraft());
+    this.editingDescription.set(false);
+  }
+
+  protected onDescriptionEnter(e: Event): void {
+    if ((e as KeyboardEvent).shiftKey) return;
+    e.preventDefault();
+    this.saveDescription();
+  }
+
+  // ── Exercise drag-to-reorder ──────────────────────────────────────────────
+  protected readonly exDragFrom = signal<number | null>(null);
+  protected readonly exDragOver = signal<number | null>(null);
+
+  protected onExDragStart(i: number, e: DragEvent): void {
+    this.exDragFrom.set(i);
+    e.dataTransfer?.setData('text/plain', String(i));
+  }
+
+  protected onExDragOver(i: number, e: DragEvent): void {
+    e.preventDefault();
+    this.exDragOver.set(i);
+  }
+
+  protected onExDrop(): void {
+    const from = this.exDragFrom();
+    const to = this.exDragOver();
+    const day = this.selectedDay();
+    const prog = this.selectedProgram();
+    if (from === null || to === null || from === to || !day || !prog) {
+      this.clearExDrag();
+      return;
+    }
+    const exs = [...day.exercises];
+    const [moved] = exs.splice(from, 1);
+    exs.splice(to, 0, moved);
+    const rowIds = exs.map((e) => e.rowId).filter((id): id is string => !!id);
+    this.programService.reorderExercises(prog.id, day.id, rowIds);
+    this.clearExDrag();
+  }
+
+  protected clearExDrag(): void {
+    this.exDragFrom.set(null);
+    this.exDragOver.set(null);
+  }
+
+  // ── Day drag-to-reorder (sidebar sort) ───────────────────────────────────
+  protected readonly dayDragFrom = signal<number | null>(null);
+  protected readonly dayDragOver = signal<number | null>(null);
+
+  protected onDaySortDragStart(i: number, e: DragEvent): void {
+    this.dayDragFrom.set(i);
+    e.dataTransfer?.setData('text/plain', String(i));
+  }
+
+  protected onDaySortDragOver(i: number, e: DragEvent): void {
+    e.preventDefault();
+    this.dayDragOver.set(i);
+  }
+
+  protected onDaySortDrop(): void {
+    const from = this.dayDragFrom();
+    const to = this.dayDragOver();
+    const prog = this.selectedProgram();
+    if (from === null || to === null || from === to || !prog) {
+      this.clearDaySortDrag();
+      return;
+    }
+    const days = [...prog.days];
+    const [moved] = days.splice(from, 1);
+    days.splice(to, 0, moved);
+    this.programService.reorderDays(prog.id, days.map((d) => d.id));
+    this.clearDaySortDrag();
+  }
+
+  protected clearDaySortDrag(): void {
+    this.dayDragFrom.set(null);
+    this.dayDragOver.set(null);
+  }
 
   private readonly programColorMap = computed<Map<string, string>>(() => {
     const map = new Map<string, string>();
@@ -265,13 +440,16 @@ export class Programs {
   });
 
   /**
-   * Programs locked via the old cycle mode (startDate).
-   * These are fully locked — no individual day scheduling.
+   * Programs using only the legacy cycle mode (startDate + no day schedules).
+   * If a program has day schedules, the new system takes precedence.
    */
   protected readonly cycleLockedProgramIds = computed(() => {
     const ids = new Set<string>();
+    const dayScheduledProgramIds = new Set(
+      this.programService.daySchedules().map((s) => s.programId),
+    );
     for (const p of this.programService.programs()) {
-      if (p.startDate) ids.add(p.id);
+      if (p.startDate && !dayScheduledProgramIds.has(p.id)) ids.add(p.id);
     }
     return ids;
   });
@@ -286,6 +464,15 @@ export class Programs {
       ids.add(s.dayId);
     }
     return ids;
+  });
+
+  /** Map dayId → scheduleId for the unschedule action. */
+  protected readonly dayScheduleIdMap = computed(() => {
+    const map = new Map<string, string>();
+    for (const s of this.programService.daySchedules()) {
+      map.set(s.dayId, s.id);
+    }
+    return map;
   });
 
   /**
@@ -307,10 +494,11 @@ export class Programs {
     return id ? this.programService.programs().find((p) => p.id === id) ?? null : null;
   });
 
+  /** Non-rest days that have at least one exercise (the only ones that can be scheduled). */
   protected readonly schedulingProgramDays = computed(() => {
     const prog = this.schedulingProgram();
     if (!prog) return [];
-    return prog.days.filter((d) => !d.isRest);
+    return prog.days.filter((d) => !d.isRest && d.exercises.length > 0);
   });
 
   protected readonly crossedDayIds = computed(() => new Set(Object.keys(this.pendingSchedules())));
@@ -335,6 +523,24 @@ export class Programs {
         ? format(new Date(this.mobileDateStr() + 'T00:00:00'), 'MMM d')
         : '—';
     return `Every ${count} ${unit}${count > 1 ? 's' : ''}, starting ${startLabel}`;
+  });
+
+  protected readonly frequencyPreviewDates = computed(() => {
+    const count = this.frequencyCount();
+    const unit = this.frequencyUnit();
+    const dropDate = this.pendingDropDate();
+    const mobileStr = this.mobileDateStr();
+    const start = dropDate ?? (mobileStr ? new Date(mobileStr + 'T00:00:00') : null);
+    if (!start || count < 1) return [];
+    const dates: Date[] = [];
+    let cur = startOfDay(start);
+    for (let i = 0; i < 8; i++) {
+      dates.push(cur);
+      if (unit === 'day') cur = addDays(cur, count);
+      else if (unit === 'week') cur = addWeeks(cur, count);
+      else cur = addMonths(cur, count);
+    }
+    return dates;
   });
 
   // ── Editor actions ────────────────────────────────────────────────────────
@@ -379,14 +585,14 @@ export class Programs {
     const program = this.selectedProgram();
     const day = this.selectedDay();
     if (!program || !day) return;
-    const pe: ProgramExercise = { exerciseId: exercise.id, exercise, sets: 3, reps: '8-12', weight: 0, weightUnit: 'lbs' };
+    const pe: ProgramExercise = { exerciseId: exercise.id, exercise, sets: 3, reps: 10, weight: 0, weightUnit: 'lbs' };
     this.programService.addExercise(program.id, day.id, pe);
     this.showAddExercise.set(false);
     this.exerciseSearch.set('');
     this.startEdit(pe);
   }
 
-  startEdit(ex: { exerciseId: string; sets: number; reps: string }): void {
+  startEdit(ex: { exerciseId: string; sets: number; reps: number }): void {
     this.editingExerciseId.set(ex.exerciseId);
     this.editDraft.set({ sets: ex.sets, reps: ex.reps });
   }
@@ -423,6 +629,14 @@ export class Programs {
   }
 
   deleteProgram(id: string): void { this.programService.deleteProgram(id); }
+
+  protected doDeleteProgram(): void {
+    const id = this.confirmDeleteProgram();
+    if (!id) return;
+    if (this.selectedProgram()?.id === id) this.selectedDayId.set(null);
+    this.programService.deleteProgram(id);
+    this.confirmDeleteProgram.set(null);
+  }
 
   // ── Calendar view ─────────────────────────────────────────────────────────
 

@@ -5,6 +5,8 @@ export interface Exercise {
   name: string;
   muscleGroups: string[];
   category: 'compound' | 'isolation' | 'cardio' | 'bodyweight';
+  group: string;
+  topRated?: boolean;
 }
 
 export interface ProgramExercise {
@@ -13,7 +15,7 @@ export interface ProgramExercise {
   exerciseId: string;
   exercise: Exercise;
   sets: number;
-  reps: string; // e.g. "5", "8-12", "max"
+  reps: number;
   weight: number;
   weightUnit: WeightUnit;
   restSeconds?: number;
@@ -83,4 +85,14 @@ export interface DayScheduleCalendarEvent {
   programId: string;
   dayId: string;
   scheduleId: string;
+}
+
+export interface TemplateInfo {
+  key: string;
+  name: string;
+  description: string;
+  split: string;
+  daysPerWeek: number;
+  days: { name: string; isRest: boolean; exerciseCount: number }[];
+  volumeSummary: { group: string; sets: number; pct: number }[];
 }

@@ -2,7 +2,7 @@ import { computed, inject, Injectable, PLATFORM_ID, signal } from '@angular/core
 import { isPlatformBrowser } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { addDays, addMonths, differenceInDays, format, startOfDay } from 'date-fns';
-import type { CalendarWorkoutEvent, DayScheduleCalendarEvent, DayScheduleEntry, Program, ProgramDay, ProgramExercise } from '../models/program.model';
+import type { CalendarWorkoutEvent, DayScheduleCalendarEvent, DayScheduleEntry, Program, ProgramDay, ProgramExercise, TemplateInfo } from '../models/program.model';
 
 @Injectable({ providedIn: 'root' })
 export class ProgramService {
@@ -11,8 +11,10 @@ export class ProgramService {
   private readonly _programs = signal<Program[]>([]);
   private readonly _selectedId = signal<string | null>(null);
   private readonly _daySchedules = signal<DayScheduleEntry[]>([]);
+  private readonly _templates = signal<TemplateInfo[]>([]);
 
   readonly loading = signal(false);
+  readonly templates = this._templates.asReadonly();
   readonly error = signal<string | null>(null);
 
   readonly programs = this._programs.asReadonly();
@@ -53,9 +55,22 @@ export class ProgramService {
   });
 
   readonly todayWorkout = computed<ProgramDay | null>(() => {
+    const todayKey = format(startOfDay(new Date()), 'yyyy-MM-dd');
+
+    // New schedule system first
+    const schedEvent = this.dayScheduleCalendarEvents().find(
+      (e) => format(e.date, 'yyyy-MM-dd') === todayKey,
+    );
+    if (schedEvent) {
+      const program = this._programs().find((p) => p.id === schedEvent.programId);
+      const day = program?.days.find((d) => d.id === schedEvent.dayId);
+      if (day) return day;
+    }
+
+    // Legacy startDate fallback
     const program = this.activeProgram();
     if (!program?.startDate) return null;
-    const start = startOfDay(new Date(program.startDate));
+    const start = startOfDay(new Date(program.startDate + 'T00:00:00'));
     const today = startOfDay(new Date());
     const offset = differenceInDays(today, start);
     const idx = ((offset % program.days.length) + program.days.length) % program.days.length;
@@ -69,9 +84,32 @@ export class ProgramService {
     const events: DayScheduleCalendarEvent[] = [];
 
     for (const sched of this._daySchedules()) {
+      if (!sched.frequencyCount || sched.frequencyCount < 1) continue;
       const excluded = new Set(sched.excludedDates ?? []);
-      const end = sched.endDate ? startOfDay(new Date(sched.endDate)) : null;
-      let cursor = startOfDay(new Date(sched.startDate));
+      // Parse as local time (not UTC) by appending T00:00:00
+      const end = sched.endDate ? startOfDay(new Date(sched.endDate + 'T00:00:00')) : null;
+      let cursor = startOfDay(new Date(sched.startDate + 'T00:00:00'));
+
+      // Fast-forward: if startDate is well before the window, jump near windowStart
+      // in one shot instead of iterating thousands of times. Handles large frequencyCount
+      // values (e.g. every 52 weeks) that would otherwise skip the visible window entirely.
+      if (cursor < windowStart && sched.frequencyCount > 0) {
+        const daysToWindow = differenceInDays(windowStart, cursor);
+        const approxStepDays =
+          sched.frequencyUnit === 'day'  ? sched.frequencyCount :
+          sched.frequencyUnit === 'week' ? sched.frequencyCount * 7 :
+                                           sched.frequencyCount * 30;
+        if (approxStepDays > 0 && daysToWindow > approxStepDays) {
+          const skipSteps = Math.max(0, Math.floor(daysToWindow / approxStepDays) - 1);
+          if (sched.frequencyUnit === 'day') {
+            cursor = addDays(cursor, skipSteps * sched.frequencyCount);
+          } else if (sched.frequencyUnit === 'week') {
+            cursor = addDays(cursor, skipSteps * sched.frequencyCount * 7);
+          } else {
+            cursor = addMonths(cursor, skipSteps * sched.frequencyCount);
+          }
+        }
+      }
 
       while (cursor <= windowEnd) {
         if (end && cursor >= end) break;
@@ -101,10 +139,18 @@ export class ProgramService {
     if (isPlatformBrowser(this.platformId)) {
       this.loadPrograms();
       this.loadSchedules();
+      this.loadTemplates();
     }
   }
 
   // ── Load ──────────────────────────────────────────────────────────────────
+
+  private loadTemplates(): void {
+    this.http.get<TemplateInfo[]>('/api/programs/templates').subscribe({
+      next: (t) => this._templates.set(t),
+      error: (err) => console.error('Failed to load templates', err),
+    });
+  }
 
   private loadPrograms(): void {
     this.loading.set(true);
@@ -146,12 +192,51 @@ export class ProgramService {
     });
   }
 
+  createFromTemplate(templateKey: string): void {
+    this.http.post<Program>('/api/programs/from-template', { template: templateKey }).subscribe({
+      next: (program) => {
+        this._programs.update((p) => [...p, program]);
+        this._selectedId.set(program.id);
+      },
+      error: (err) => console.error('Failed to create program from template', err),
+    });
+  }
+
+  duplicateProgram(id: string): void {
+    this.http.post<Program>(`/api/programs/${id}/duplicate`, {}).subscribe({
+      next: (program) => {
+        this._programs.update((p) => [...p, program]);
+        this._selectedId.set(program.id);
+      },
+      error: (err) => console.error('Failed to duplicate program', err),
+    });
+  }
+
   deleteProgram(id: string): void {
     // Optimistic update
     this._programs.update((programs) => programs.filter((p) => p.id !== id));
+    this._daySchedules.update((s) => s.filter((e) => e.programId !== id));
     if (this._selectedId() === id) this._selectedId.set(null);
 
     this.http.delete(`/api/programs/${id}`).subscribe({
+      error: () => {
+        this.loadPrograms();
+        this.loadSchedules();
+      },
+    });
+  }
+
+  renameProgram(id: string, name: string): void {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    // Optimistic update
+    this._programs.update((programs) =>
+      programs.map((p) => (p.id === id ? { ...p, name: trimmed } : p)),
+    );
+    this.http.patch<Program>(`/api/programs/${id}`, { name: trimmed }).subscribe({
+      next: (updated) => {
+        this._programs.update((programs) => programs.map((p) => (p.id === id ? updated : p)));
+      },
       error: () => this.loadPrograms(),
     });
   }
@@ -166,6 +251,22 @@ export class ProgramService {
       next: (updated) => {
         this._programs.update((programs) =>
           programs.map((p) => (p.id === id ? updated : { ...p, isActive: false })),
+        );
+      },
+      error: () => this.loadPrograms(),
+    });
+  }
+
+  updateDescription(id: string, description: string): void {
+    // Optimistic update
+    this._programs.update((programs) =>
+      programs.map((p) => (p.id === id ? { ...p, description, updatedAt: new Date().toISOString() } : p)),
+    );
+
+    this.http.patch<Program>(`/api/programs/${id}`, { description }).subscribe({
+      next: (updated) => {
+        this._programs.update((programs) =>
+          programs.map((p) => (p.id === id ? updated : p)),
         );
       },
       error: () => this.loadPrograms(),
@@ -192,6 +293,36 @@ export class ProgramService {
 
   // ── Day mutations ─────────────────────────────────────────────────────────
 
+  deleteDay(programId: string, dayId: string, options?: { reassignToDayId?: string }): void {
+    // Optimistic update
+    this._programs.update((programs) =>
+      programs.map((p) => {
+        if (p.id !== programId) return p;
+        return { ...p, updatedAt: new Date().toISOString(), days: p.days.filter((d) => d.id !== dayId) };
+      }),
+    );
+    // Also remove any schedules for this day from local state
+    if (!options?.reassignToDayId) {
+      this._daySchedules.update((s) => s.filter((e) => e.dayId !== dayId));
+    }
+
+    this.http
+      .delete<Program>(`/api/programs/${programId}/days/${dayId}`, {
+        body: options ?? {},
+      })
+      .subscribe({
+        next: (updated) => {
+          this._programs.update((programs) =>
+            programs.map((p) => (p.id === programId ? updated : p)),
+          );
+          if (options?.reassignToDayId) {
+            this.loadSchedules();
+          }
+        },
+        error: () => this.loadPrograms(),
+      });
+  }
+
   addDay(programId: string): void {
     const prog = this._programs().find((p) => p.id === programId);
     const dayNum = (prog?.days.length ?? 0) + 1;
@@ -204,6 +335,28 @@ export class ProgramService {
         );
       },
       error: (err) => console.error('Failed to add day', err),
+    });
+  }
+
+  reorderDays(programId: string, dayIds: string[]): void {
+    // Optimistic update
+    this._programs.update((programs) =>
+      programs.map((p) => {
+        if (p.id !== programId) return p;
+        const ordered = dayIds
+          .map((id) => p.days.find((d) => d.id === id))
+          .filter((d): d is NonNullable<typeof d> => !!d);
+        return { ...p, updatedAt: new Date().toISOString(), days: ordered };
+      }),
+    );
+
+    this.http.patch<Program>(`/api/programs/${programId}/days/reorder`, { dayIds }).subscribe({
+      next: (updated) => {
+        this._programs.update((programs) =>
+          programs.map((p) => (p.id === programId ? updated : p)),
+        );
+      },
+      error: () => this.loadPrograms(),
     });
   }
 
@@ -266,6 +419,37 @@ export class ProgramService {
 
   // ── Exercise mutations ────────────────────────────────────────────────────
 
+  reorderExercises(programId: string, dayId: string, rowIds: string[]): void {
+    // Optimistic update
+    this._programs.update((programs) =>
+      programs.map((p) => {
+        if (p.id !== programId) return p;
+        return {
+          ...p,
+          updatedAt: new Date().toISOString(),
+          days: p.days.map((d) => {
+            if (d.id !== dayId) return d;
+            const ordered = rowIds
+              .map((rid) => d.exercises.find((e) => e.rowId === rid))
+              .filter((e): e is NonNullable<typeof e> => !!e);
+            return { ...d, exercises: ordered };
+          }),
+        };
+      }),
+    );
+
+    this.http
+      .patch<Program>(`/api/programs/${programId}/days/${dayId}/exercises/reorder`, { exerciseIds: rowIds })
+      .subscribe({
+        next: (updated) => {
+          this._programs.update((programs) =>
+            programs.map((p) => (p.id === programId ? updated : p)),
+          );
+        },
+        error: () => this.loadPrograms(),
+      });
+  }
+
   addExercise(programId: string, dayId: string, exercise: ProgramExercise): void {
     // Optimistic update
     this._programs.update((programs) =>
@@ -297,7 +481,7 @@ export class ProgramService {
     programId: string,
     dayId: string,
     exerciseId: string,
-    updates: { sets?: number; reps?: string; weight?: number; weightUnit?: 'lbs' | 'kg'; notes?: string },
+    updates: { sets?: number; reps?: number; weight?: number; weightUnit?: 'lbs' | 'kg'; notes?: string },
   ): void {
     const prog = this._programs().find((p) => p.id === programId);
     const day = prog?.days.find((d) => d.id === dayId);
@@ -402,6 +586,14 @@ export class ProgramService {
         },
         error: () => this.loadSchedules(),
       });
+  }
+
+  /** Remove a single DayScheduleEntry by its ID. */
+  clearDaySchedule(scheduleId: string): void {
+    this._daySchedules.update((s) => s.filter((e) => e.id !== scheduleId));
+    this.http.delete(`/api/schedules/${scheduleId}`).subscribe({
+      error: () => this.loadSchedules(),
+    });
   }
 
   clearDaySchedules(programId: string): void {

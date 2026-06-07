@@ -103,6 +103,32 @@ router.post('/', async (c) => {
   return c.json(inserted.map(mapSchedule), 201);
 });
 
+// DELETE /api/schedules/:id  (remove entire schedule entry)
+router.delete('/:id', async (c) => {
+  const guard = requireAuth(c);
+  if (guard) return guard;
+  const user = c.get('user')!;
+  const { id } = c.req.param();
+
+  // Skip if it's a sub-route like /occurrence or /from-date (handled by later routes)
+  const [sched] = await db
+    .select()
+    .from(daySchedules)
+    .where(eq(daySchedules.id, id))
+    .limit(1);
+  if (!sched) return c.json({ error: 'Not found' }, 404);
+
+  const [prog] = await db
+    .select()
+    .from(programs)
+    .where(and(eq(programs.id, sched.programId), eq(programs.userId, user.id)))
+    .limit(1);
+  if (!prog) return c.json({ error: 'Unauthorized' }, 401);
+
+  await db.delete(daySchedules).where(eq(daySchedules.id, id));
+  return c.json({ ok: true });
+});
+
 // DELETE /api/schedules/:id/occurrence
 router.delete('/:id/occurrence', async (c) => {
   const guard = requireAuth(c);

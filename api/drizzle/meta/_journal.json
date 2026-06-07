@@ -8,6 +8,27 @@
       "when": 1780277715590,
       "tag": "0000_noisy_metal_master",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1780434388148,
+      "tag": "0001_outgoing_talon",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1748822400000,
+      "tag": "0002_exercises_table",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1748822460000,
+      "tag": "0003_workout_sessions",
+      "breakpoints": true
     }
   ]
 }
