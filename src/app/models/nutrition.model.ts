@@ -1,4 +1,4 @@
-export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
+export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'log';
 export type FoodSource = 'openfoodfacts' | 'usda' | 'custom';
 
 export interface FoodItem {

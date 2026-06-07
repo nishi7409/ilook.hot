@@ -22,13 +22,6 @@ import { format } from 'date-fns';
 import type { FoodItem, MealType } from '../../models/nutrition.model';
 import { NutritionService } from '../../services/nutrition.service';
 
-const MEAL_ORDER: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
-const MEAL_LABELS: Record<MealType, string> = {
-  breakfast: 'Breakfast',
-  lunch: 'Lunch',
-  dinner: 'Dinner',
-  snack: 'Snacks',
-};
 
 // Declare minimal BarcodeDetector types (Chrome/Edge on Android/macOS only)
 declare class BarcodeDetector {
@@ -47,8 +40,6 @@ declare class BarcodeDetector {
 export class Calories {
   protected readonly showUnderConstruction = false;
   protected readonly nutritionService = inject(NutritionService);
-  protected readonly mealOrder = MEAL_ORDER;
-  protected readonly mealLabels = MEAL_LABELS;
   protected readonly today = format(new Date(), 'EEEE, MMMM d');
 
   // Toast notification
@@ -170,19 +161,10 @@ export class Calories {
     };
   });
 
-  protected entriesFor(mealType: MealType) {
-    return this.todayLog().entries.filter((e) => e.mealType === mealType);
-  }
-
-  protected mealTotals(mealType: MealType) {
-    const entries = this.entriesFor(mealType);
-    return entries.reduce((a, e) => ({ cal: a.cal + e.calories, pro: a.pro + e.protein }), { cal: 0, pro: 0 });
-  }
-
   // ── Food search ──────────────────────────────────────────────────
 
-  openAddModal(meal: MealType): void {
-    this.addingTo.set(meal);
+  openAddModal(): void {
+    this.addingTo.set('log');
     this.addMode.set('select');
     this.searchQuery.set('');
     this.selectedFood.set(null);
@@ -199,8 +181,8 @@ export class Calories {
     this.scanError.set(null);
   }
 
-  openSearch(meal: MealType): void {
-    this.addingTo.set(meal);
+  openSearch(): void {
+    this.addingTo.set('log');
     this.addMode.set('search');
     this.searchQuery.set('');
     this.selectedFood.set(null);
@@ -219,8 +201,7 @@ export class Calories {
 
   addCustomFood(): void {
     const c = this.customFood();
-    const meal = this.addingTo();
-    if (!c.name.trim() || !meal) return;
+    if (!c.name.trim()) return;
     const food: FoodItem = {
       id: `custom-${Date.now()}`,
       name: c.name.trim(),
@@ -233,7 +214,7 @@ export class Calories {
       fat: c.fat,
       source: 'custom',
     };
-    this.nutritionService.addEntry(food, 1, meal);
+    this.nutritionService.addEntry(food, 1, 'log');
     this.closeAddModal();
   }
 
@@ -249,10 +230,9 @@ export class Calories {
 
   confirmAdd(): void {
     const food = this.selectedFood();
-    const meal = this.addingTo();
-    if (!food || !meal) return;
-    this.nutritionService.addEntry(food, this.servings(), meal);
-    this.showToast(`${food.name} added to ${this.mealLabels[meal]}`);
+    if (!food) return;
+    this.nutritionService.addEntry(food, this.servings(), 'log');
+    this.showToast(`${food.name} logged`);
     this.selectedFood.set(null);
     this.searchQuery.set('');
     this.nutritionService.search('');
@@ -278,8 +258,8 @@ export class Calories {
 
   // ── Barcode scanner ───────────────────────────────────────────────
 
-  async openScanner(meal: MealType): Promise<void> {
-    this.addingTo.set(meal);
+  async openScanner(): Promise<void> {
+    this.addingTo.set('log');
     await this.startScan();
   }
 
@@ -431,11 +411,8 @@ export class Calories {
         source: 'openfoodfacts',
       };
       // Auto-log with 1 serving — no extra tap needed after scanning
-      const meal = this.addingTo();
-      if (meal) {
-        this.nutritionService.addEntry(food, 1, meal);
-        this.showToast(`${food.name} added to ${this.mealLabels[meal]}`);
-      }
+      this.nutritionService.addEntry(food, 1, 'log');
+      this.showToast(`${food.name} logged`);
       this.closeAddModal();
     } catch {
       this.showBarcodeScanner.set(false);

@@ -18,19 +18,30 @@
       <h1 class="font-display text-ink text-xl font-medium tracking-tight">Calories</h1>
       <p class="text-muted text-xs font-body">{{ today }}</p>
     </div>
-    <a
-      routerLink="/settings"
-      class="inline-flex items-center gap-2 px-3 py-2 border border-border-light text-muted text-xs font-medium rounded-full font-body hover:border-ink hover:text-ink transition-colors"
-      aria-label="Edit nutrition goals in settings"
-    >
-      <ng-icon name="heroAdjustmentsHorizontal" size="14" />
-      Goals
-    </a>
+    <div class="flex items-center gap-2">
+      <a
+        routerLink="/settings"
+        class="inline-flex items-center gap-2 px-3 py-2 border border-border-light text-muted text-xs font-medium rounded-full font-body hover:border-ink hover:text-ink transition-colors"
+        aria-label="Edit nutrition goals in settings"
+      >
+        <ng-icon name="heroAdjustmentsHorizontal" size="14" />
+        Goals
+      </a>
+      <button
+        type="button"
+        (click)="openAddModal()"
+        class="inline-flex items-center gap-1.5 px-3 py-2 bg-primary text-white text-xs font-medium rounded-full font-body hover:bg-ink transition-colors"
+        aria-label="Add food"
+      >
+        <ng-icon name="heroPlus" size="14" />
+        Add food
+      </button>
+    </div>
   </div>
 
   <!-- Add food modal (unified: select → search / scan / custom) -->
   @if (addingTo()) {
-    <div class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" role="dialog" aria-modal="true" [attr.aria-label]="'Add food to ' + mealLabels[addingTo()!]">
+    <div class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Add food">
       <!-- Backdrop -->
       <button
         type="button"
@@ -51,7 +62,7 @@
             }
             <h2 class="font-display text-ink text-base font-medium">
               @switch (addMode()) {
-                @case ('select') { Add food to {{ mealLabels[addingTo()!] }} }
+                @case ('select') { Add food }
                 @case ('search') { Search foods }
                 @case ('scan') { Scan barcode }
                 @case ('custom') { Add custom food }
@@ -428,56 +439,60 @@
       </section>
     </div>
 
-    <!-- Meal sections -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-      @for (meal of mealOrder; track meal) {
-        <section class="bg-canvas rounded-xl border border-border-light overflow-hidden" [attr.aria-labelledby]="'meal-' + meal">
-          <!-- Meal header -->
-          <div class="px-5 py-4 border-b border-border-light flex items-center justify-between">
-            <div>
-              <h2 [id]="'meal-' + meal" class="font-display text-ink text-base font-medium tracking-tight">{{ mealLabels[meal] }}</h2>
-              @if (mealTotals(meal).cal > 0) {
-                <p class="text-muted text-xs font-body">{{ mealTotals(meal).cal | number:'1.0-0' }} kcal · {{ mealTotals(meal).pro | number:'1.0-0' }}g protein</p>
-              }
+    <!-- Food log -->
+    <section class="bg-canvas rounded-xl border border-border-light overflow-hidden" aria-labelledby="log-heading">
+      <div class="px-5 py-4 border-b border-border-light flex items-center justify-between">
+        <div>
+          <h2 id="log-heading" class="font-display text-ink text-base font-medium tracking-tight">Today's log</h2>
+          @if (todayLog().entries.length > 0) {
+            <p class="text-muted text-xs font-body">{{ totals().calories | number:'1.0-0' }} kcal · {{ totals().protein | number:'1.0-0' }}g protein</p>
+          }
+        </div>
+        <button
+          type="button"
+          (click)="openAddModal()"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white text-xs font-medium rounded-full font-body hover:bg-ink transition-colors"
+          aria-label="Add food"
+        >
+          <ng-icon name="heroPlus" size="12" />
+          Add
+        </button>
+      </div>
+
+      <div class="divide-y divide-border-light">
+        @for (entry of todayLog().entries; track entry.id) {
+          <div class="flex items-center gap-3 px-5 py-3">
+            <div class="flex-1 min-w-0">
+              <p class="text-ink text-sm font-medium font-body truncate">{{ entry.food.name }}</p>
+              <p class="text-muted text-[11px] font-body">{{ entry.servings }} × {{ entry.food.servingSize }} {{ entry.food.servingUnit }}</p>
             </div>
+            <div class="flex items-center gap-3 text-xs font-body shrink-0">
+              <span class="text-ink font-medium">{{ entry.calories | number:'1.0-0' }} kcal</span>
+              <span class="text-muted">{{ entry.protein | number:'1.0-0' }}g P</span>
+              <button
+                type="button"
+                (click)="removeEntry(entry.id)"
+                class="text-muted hover:text-error transition-colors ml-1"
+                [attr.aria-label]="'Remove ' + entry.food.name"
+              >
+                <ng-icon name="heroTrash" size="13" />
+              </button>
+            </div>
+          </div>
+        } @empty {
+          <div class="px-5 py-10 flex flex-col items-center gap-3 text-center">
+            <p class="text-muted text-sm font-body">Nothing logged today.</p>
             <button
               type="button"
-              (click)="openAddModal(meal)"
-              class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white text-xs font-medium rounded-full font-body hover:bg-ink transition-colors"
-              [attr.aria-label]="'Add food to ' + mealLabels[meal]"
+              (click)="openAddModal()"
+              class="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-xs font-medium rounded-full font-body hover:bg-ink transition-colors"
             >
               <ng-icon name="heroPlus" size="12" />
-              Add
+              Log your first food
             </button>
           </div>
-
-          <!-- Food entries -->
-          <div class="divide-y divide-border-light">
-            @for (entry of entriesFor(meal); track entry.id) {
-              <div class="flex items-center gap-3 px-5 py-3">
-                <div class="flex-1 min-w-0">
-                  <p class="text-ink text-sm font-medium font-body truncate">{{ entry.food.name }}</p>
-                  <p class="text-muted text-[11px] font-body">{{ entry.servings }} × {{ entry.food.servingSize }} {{ entry.food.servingUnit }}</p>
-                </div>
-                <div class="flex items-center gap-3 text-xs font-body shrink-0">
-                  <span class="text-ink font-medium">{{ entry.calories | number:'1.0-0' }} kcal</span>
-                  <span class="text-muted">{{ entry.protein | number:'1.0-0' }}g P</span>
-                  <button
-                    type="button"
-                    (click)="removeEntry(entry.id)"
-                    class="text-muted hover:text-error transition-colors ml-1"
-                    [attr.aria-label]="'Remove ' + entry.food.name"
-                  >
-                    <ng-icon name="heroTrash" size="13" />
-                  </button>
-                </div>
-              </div>
-            } @empty {
-              <p class="px-5 py-4 text-muted text-sm font-body">Nothing logged yet.</p>
-            }
-          </div>
-        </section>
-      }
-    </div>
+        }
+      </div>
+    </section>
   </div>
 </div>
