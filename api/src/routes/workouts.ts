@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { and, eq, desc, asc, max } from 'drizzle-orm';
+import { and, eq, desc, asc, max, count } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import {
   workoutSessions,
@@ -116,23 +116,33 @@ async function loadSessionWithExercises(sessionId: string) {
   return formatSession(session, formattedExercises);
 }
 
-// GET / — all completed sessions, newest first
+// GET / — completed sessions, newest first (paginated)
 router.get('/', async (c) => {
   const authError = requireAuth(c);
   if (authError) return authError;
 
   const user = c.get('user')!;
+  const page = Math.max(1, parseInt(c.req.query('page') ?? '1', 10) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(c.req.query('limit') ?? '20', 10) || 20));
+  const offset = (page - 1) * limit;
 
-  const sessions = await db
-    .select()
-    .from(workoutSessions)
-    .where(
-      and(
-        eq(workoutSessions.userId, user.id),
-        eq(workoutSessions.completed, true),
-      ),
-    )
-    .orderBy(desc(workoutSessions.createdAt));
+  const whereClause = and(
+    eq(workoutSessions.userId, user.id),
+    eq(workoutSessions.completed, true),
+  );
+
+  const [totalResult, sessions] = await Promise.all([
+    db.select({ count: count() }).from(workoutSessions).where(whereClause).then((r) => r[0]),
+    db
+      .select()
+      .from(workoutSessions)
+      .where(whereClause)
+      .orderBy(desc(workoutSessions.createdAt))
+      .limit(limit)
+      .offset(offset),
+  ]);
+
+  const total = totalResult?.count ?? 0;
 
   const results = await Promise.all(
     sessions.map(async (s) => {
@@ -160,7 +170,7 @@ router.get('/', async (c) => {
     }),
   );
 
-  return c.json(results);
+  return c.json({ sessions: results, total, page, limit });
 });
 
 // GET /active — most recent incomplete session

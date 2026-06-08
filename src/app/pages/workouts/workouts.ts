@@ -52,6 +52,8 @@ export class Workouts {
   protected readonly recentSessions = this.workoutService.recentSessions;
   protected readonly todayWorkout = this.programService.todayWorkout;
   protected readonly exercisePRs = this.workoutService.exercisePRs;
+  protected readonly hasMoreSessions = this.workoutService.hasMore;
+  protected readonly loadingMore = this.workoutService.loadingMore;
 
   /** Keyed by sessionExerciseId → array of per-set draft rows */
   protected readonly setDrafts = signal<Record<string, SetDraftRow[] | undefined>>({});
@@ -154,6 +156,10 @@ export class Workouts {
   discardWorkout(): void {
     this.workoutService.discardSession();
     this.expandedExerciseId.set(null);
+  }
+
+  loadMoreSessions(): void {
+    this.workoutService.loadMoreSessions();
   }
 
   // ── Set draft editing ─────────────────────────────────────────────────────

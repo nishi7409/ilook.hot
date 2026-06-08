@@ -58,6 +58,13 @@ export class Calories {
   protected readonly servings = signal(1);
   protected readonly searchQuery = signal('');
   protected readonly selectedFood = signal<FoodItem | null>(null);
+  protected readonly selectedMealType = signal<MealType>('log');
+  protected readonly mealTypes: { value: MealType; label: string }[] = [
+    { value: 'breakfast', label: 'Breakfast' },
+    { value: 'lunch', label: 'Lunch' },
+    { value: 'dinner', label: 'Dinner' },
+    { value: 'snack', label: 'Snack' },
+  ];
 
   // Custom food form state
   protected readonly customFood = signal({
@@ -169,6 +176,7 @@ export class Calories {
     this.searchQuery.set('');
     this.selectedFood.set(null);
     this.servings.set(1);
+    this.selectedMealType.set('log');
     this.customFood.set({ name: '', brand: '', calories: 0, protein: 0, carbs: 0, fat: 0, servingSize: 100, servingUnit: 'g' });
   }
 
@@ -214,7 +222,7 @@ export class Calories {
       fat: c.fat,
       source: 'custom',
     };
-    this.nutritionService.addEntry(food, 1, 'log');
+    this.nutritionService.addEntry(food, 1, this.selectedMealType());
     this.closeAddModal();
   }
 
@@ -231,7 +239,7 @@ export class Calories {
   confirmAdd(): void {
     const food = this.selectedFood();
     if (!food) return;
-    this.nutritionService.addEntry(food, this.servings(), 'log');
+    this.nutritionService.addEntry(food, this.servings(), this.selectedMealType());
     this.showToast(`${food.name} logged`);
     this.selectedFood.set(null);
     this.searchQuery.set('');
@@ -411,7 +419,7 @@ export class Calories {
         source: 'openfoodfacts',
       };
       // Auto-log with 1 serving — no extra tap needed after scanning
-      this.nutritionService.addEntry(food, 1, 'log');
+      this.nutritionService.addEntry(food, 1, this.selectedMealType());
       this.showToast(`${food.name} logged`);
       this.closeAddModal();
     } catch {

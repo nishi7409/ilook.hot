@@ -156,6 +156,130 @@ router.put('/goals', async (c) => {
   return c.json(body);
 });
 
+// GET /search?q=...
+router.get('/search', async (c) => {
+  const authError = requireAuth(c);
+  if (authError) return authError;
+
+  const q = c.req.query('q')?.trim();
+  if (!q) return c.json([]);
+
+  const [offResults, usdaResults] = await Promise.allSettled([
+    fetchOpenFoodFacts(q),
+    fetchUSDA(q),
+  ]);
+
+  const foods = [
+    ...(offResults.status === 'fulfilled' ? offResults.value : []),
+    ...(usdaResults.status === 'fulfilled' ? usdaResults.value : []),
+  ];
+
+  return c.json(foods);
+});
+
+interface NormalizedFood {
+  id: string;
+  name: string;
+  brand?: string;
+  servingSize: number;
+  servingUnit: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  barcode?: string;
+  source: 'openfoodfacts' | 'usda';
+}
+
+async function fetchOpenFoodFacts(query: string): Promise<NormalizedFood[]> {
+  const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&json=1&page_size=20`;
+  const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+  if (!res.ok) return [];
+
+  const data = (await res.json()) as {
+    products?: Array<{
+      code?: string;
+      product_name?: string;
+      brands?: string;
+      serving_quantity?: number;
+      serving_size?: string;
+      nutriments?: {
+        'energy-kcal_100g'?: number;
+        proteins_100g?: number;
+        carbohydrates_100g?: number;
+        fat_100g?: number;
+      };
+    }>;
+  };
+
+  return (data.products ?? [])
+    .filter((p) => p.product_name && p.nutriments?.['energy-kcal_100g'] != null)
+    .map((p) => ({
+      id: `off-${p.code ?? crypto.randomUUID()}`,
+      name: p.product_name!,
+      brand: p.brands || undefined,
+      servingSize: p.serving_quantity ?? 100,
+      servingUnit: p.serving_size ? parseServingUnit(p.serving_size) : 'g',
+      calories: Math.round(p.nutriments!['energy-kcal_100g'] ?? 0),
+      protein: round1(p.nutriments!.proteins_100g ?? 0),
+      carbs: round1(p.nutriments!.carbohydrates_100g ?? 0),
+      fat: round1(p.nutriments!.fat_100g ?? 0),
+      barcode: p.code || undefined,
+      source: 'openfoodfacts' as const,
+    }));
+}
+
+async function fetchUSDA(query: string): Promise<NormalizedFood[]> {
+  const apiKey = process.env['USDA_API_KEY'] ?? 'DEMO_KEY';
+  const url = `https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(query)}&pageSize=10&api_key=${apiKey}`;
+  const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+  if (!res.ok) return [];
+
+  const data = (await res.json()) as {
+    foods?: Array<{
+      fdcId?: number;
+      description?: string;
+      brandName?: string;
+      brandOwner?: string;
+      servingSize?: number;
+      servingSizeUnit?: string;
+      foodNutrients?: Array<{
+        nutrientId?: number;
+        nutrientName?: string;
+        value?: number;
+      }>;
+    }>;
+  };
+
+  return (data.foods ?? [])
+    .filter((f) => f.description)
+    .map((f) => {
+      const nutrients = f.foodNutrients ?? [];
+      const getNutrient = (id: number) => nutrients.find((n) => n.nutrientId === id)?.value ?? 0;
+      return {
+        id: `usda-${f.fdcId ?? crypto.randomUUID()}`,
+        name: f.description!,
+        brand: f.brandName || f.brandOwner || undefined,
+        servingSize: f.servingSize ?? 100,
+        servingUnit: f.servingSizeUnit ?? 'g',
+        calories: Math.round(getNutrient(1008)),
+        protein: round1(getNutrient(1003)),
+        carbs: round1(getNutrient(1005)),
+        fat: round1(getNutrient(1004)),
+        source: 'usda' as const,
+      };
+    });
+}
+
+function parseServingUnit(servingSize: string): string {
+  const match = servingSize.match(/[a-zA-Z]+/);
+  return match ? match[0].toLowerCase() : 'g';
+}
+
+function round1(n: number): number {
+  return Math.round(n * 10) / 10;
+}
+
 function formatEntry(r: typeof nutritionLogs.$inferSelect) {
   return {
     id: r.id,
