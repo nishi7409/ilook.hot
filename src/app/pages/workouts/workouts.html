@@ -187,6 +187,60 @@
         </div>
       </section>
 
+      <!-- ── Rest timer overlay ──────────────────────────────────────────── -->
+      @if (timerActive()) {
+        <div
+          class="fixed inset-0 z-50 flex items-center justify-center bg-ink/80 backdrop-blur-sm"
+          role="dialog"
+          aria-label="Rest timer"
+          aria-live="assertive"
+        >
+          <div class="flex flex-col items-center gap-6 p-8">
+            <!-- Circular progress ring with countdown -->
+            <div class="relative w-48 h-48 md:w-56 md:h-56">
+              <svg class="w-full h-full -rotate-90" viewBox="0 0 120 120" aria-hidden="true">
+                <!-- Background ring -->
+                <circle
+                  cx="60" cy="60" r="54"
+                  fill="none"
+                  stroke="rgba(255,255,255,0.1)"
+                  stroke-width="6"
+                />
+                <!-- Progress ring -->
+                <circle
+                  cx="60" cy="60" r="54"
+                  fill="none"
+                  stroke="#ff7759"
+                  stroke-width="6"
+                  stroke-linecap="round"
+                  [attr.stroke-dasharray]="2 * 3.14159 * 54"
+                  [attr.stroke-dashoffset]="2 * 3.14159 * 54 * (1 - timerProgress())"
+                  class="transition-[stroke-dashoffset] duration-1000 ease-linear"
+                />
+              </svg>
+              <!-- Countdown text -->
+              <div class="absolute inset-0 flex flex-col items-center justify-center">
+                <span class="text-white font-display text-4xl md:text-5xl font-medium tracking-tight">
+                  {{ timerDisplay() }}
+                </span>
+                <span class="text-white/60 text-xs font-body mt-1 uppercase tracking-widest">Rest</span>
+              </div>
+            </div>
+
+            <!-- Skip button -->
+            <button
+              type="button"
+              (click)="skipTimer()"
+              class="inline-flex items-center gap-2 px-6 py-3 bg-white/10 text-white text-sm font-medium rounded-full font-body hover:bg-white/20 transition-colors border border-white/20"
+              aria-label="Skip rest timer"
+            >
+              <ng-icon name="heroXMark" size="16" />
+              Skip rest
+            </button>
+          </div>
+        </div>
+      }
+
     } @else {
       <!-- ── No active session: today's preview ──────────────────────────── -->
       @if (todayWorkout(); as day) {

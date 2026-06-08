@@ -163,3 +163,20 @@ export const progressPhotos = pgTable('progress_photos', {
 }, (table) => [
   index('progress_photos_user_date_idx').on(table.userId, table.date),
 ]);
+
+// Water intake logs
+export const waterLogs = pgTable('water_logs', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  date: text('date').notNull(), // yyyy-MM-dd
+  amount: integer('amount').notNull(), // ml
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => [
+  index('water_logs_user_date_idx').on(table.userId, table.date),
+]);
+
+// Water intake goals (one row per user)
+export const waterGoals = pgTable('water_goals', {
+  userId: text('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+  dailyGoalMl: integer('daily_goal_ml').default(2500).notNull(),
+});

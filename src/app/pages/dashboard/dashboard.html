@@ -199,6 +199,96 @@
       </section>
     </div>
 
+    <!-- Water intake -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+      <!-- Water intake widget -->
+      <section class="bg-canvas rounded-2xl border border-border-light p-6 flex flex-col" aria-labelledby="water-heading">
+        <p class="text-[11px] font-medium text-muted uppercase tracking-widest font-body mb-1">Hydration</p>
+        <h2 id="water-heading" class="font-display text-ink text-xl font-medium tracking-tight mb-5">Water intake</h2>
+
+        <!-- SVG ring -->
+        <div class="flex items-center justify-center mb-5">
+          <div class="relative w-36 h-36">
+            <svg class="w-full h-full -rotate-90" viewBox="0 0 100 100" aria-hidden="true">
+              <circle cx="50" cy="50" r="42" fill="none" stroke="currentColor" class="text-soft-stone" stroke-width="10" />
+              <circle cx="50" cy="50" r="42" fill="none" stroke="currentColor" class="text-sky-500 transition-all duration-700"
+                stroke-width="10"
+                stroke-linecap="round"
+                [attr.stroke-dasharray]="263.9"
+                [attr.stroke-dashoffset]="263.9 * (1 - waterService.percent() / 100)"
+              />
+            </svg>
+            <div class="absolute inset-0 flex flex-col items-center justify-center">
+              <span class="font-display text-ink text-2xl font-medium leading-none">{{ waterService.total() | number:'1.0-0' }}</span>
+              <span class="text-muted text-xs font-body mt-1">ml</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick-add buttons -->
+        <div class="flex gap-2 mb-4">
+          <button type="button" (click)="addWater(250)"
+            class="flex-1 py-2.5 bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 text-sm font-medium rounded-xl font-body hover:bg-sky-100 dark:hover:bg-sky-500/20 transition-colors"
+            aria-label="Add 250 milliliters of water">
+            +250ml
+          </button>
+          <button type="button" (click)="addWater(500)"
+            class="flex-1 py-2.5 bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 text-sm font-medium rounded-xl font-body hover:bg-sky-100 dark:hover:bg-sky-500/20 transition-colors"
+            aria-label="Add 500 milliliters of water">
+            +500ml
+          </button>
+          <button type="button" (click)="showCustomWater.set(!showCustomWater())"
+            class="flex-1 py-2.5 border border-border-light text-ink text-sm font-medium rounded-xl font-body hover:bg-soft-stone transition-colors"
+            [attr.aria-expanded]="showCustomWater()"
+            aria-label="Add custom amount of water">
+            Custom
+          </button>
+        </div>
+
+        <!-- Custom amount input -->
+        @if (showCustomWater()) {
+          <div class="flex gap-2 mb-4">
+            <input
+              type="number"
+              [ngModel]="customWaterAmount()"
+              (ngModelChange)="customWaterAmount.set(+$event)"
+              min="1" max="5000" step="50"
+              placeholder="Amount in ml"
+              aria-label="Custom water amount in milliliters"
+              class="flex-1 border border-border-light rounded-xl px-4 py-2.5 text-sm font-body text-ink bg-canvas outline-none focus:border-ink transition-colors"
+            />
+            <button type="button" (click)="addCustomWater()"
+              [disabled]="customWaterAmount() <= 0"
+              class="px-5 py-2.5 bg-sky-500 text-white text-sm font-medium rounded-xl font-body hover:bg-sky-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              aria-label="Add custom water amount">
+              Add
+            </button>
+          </div>
+        }
+
+        <!-- Today's entries -->
+        @if (waterService.entries().length) {
+          <div class="flex flex-col divide-y divide-border-light max-h-36 overflow-y-auto">
+            @for (entry of waterService.entries(); track entry.id) {
+              <div class="flex items-center justify-between py-2">
+                <span class="text-ink text-sm font-body">{{ entry.amount }}ml</span>
+                <button type="button" (click)="removeWaterEntry(entry.id)"
+                  class="text-muted hover:text-red-500 transition-colors p-1 rounded-lg"
+                  [attr.aria-label]="'Remove ' + entry.amount + ' ml water entry'">
+                  <ng-icon name="heroXMark" size="14" aria-hidden="true" />
+                </button>
+              </div>
+            }
+          </div>
+        }
+
+        <p class="text-muted text-xs font-body mt-auto pt-3 border-t border-border-light">
+          {{ waterService.remaining() | number:'1.0-0' }}ml remaining of {{ waterService.goal().dailyGoalMl | number:'1.0-0' }}ml
+        </p>
+      </section>
+    </div>
+
     <!-- Row 2: 7-day trend + Progress -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
 

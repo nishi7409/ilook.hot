@@ -44,6 +44,7 @@ app.route('/calendar', calendarRoutes);
 app.route('/api/workouts', workoutRoutes);
 app.route('/api/nutrition', nutritionRoutes);
 app.route('/api/photos', photoRoutes);
+app.route('/api/water', waterRoutes);
 app.route('/api/stats', statsRoutes);
 
 app.use('/uploads/*', serveStatic({ root: './' }));

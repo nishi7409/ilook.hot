@@ -1,5 +1,6 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { NgIconComponent, provideIcons } from '@ng-icons/core';
 import {
   heroArrowTrendingUp,
@@ -8,6 +9,7 @@ import {
   heroFire,
   heroPlayCircle,
   heroTrophy,
+  heroXMark,
 } from '@ng-icons/heroicons/outline';
 import { NgxEchartsDirective } from 'ngx-echarts';
 import type { EChartsOption } from 'echarts';
@@ -15,12 +17,13 @@ import { addDays, format } from 'date-fns';
 import { NutritionService } from '../../services/nutrition.service';
 import { ProgramService } from '../../services/program.service';
 import { WorkoutService } from '../../services/workout.service';
+import { WaterService } from '../../services/water.service';
 import { RouterLink } from '@angular/router';
 
 @Component({
   selector: 'app-dashboard',
-  imports: [NgxEchartsDirective, NgIconComponent, RouterLink, DecimalPipe],
-  providers: [provideIcons({ heroCheckCircle, heroFire, heroArrowTrendingUp, heroPlayCircle, heroBolt, heroTrophy })],
+  imports: [NgxEchartsDirective, NgIconComponent, RouterLink, DecimalPipe, FormsModule],
+  providers: [provideIcons({ heroCheckCircle, heroFire, heroArrowTrendingUp, heroPlayCircle, heroBolt, heroTrophy, heroXMark })],
   templateUrl: './dashboard.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-1 flex-col overflow-hidden min-w-0' },
@@ -29,6 +32,10 @@ export class Dashboard {
   protected readonly programService = inject(ProgramService);
   protected readonly nutritionService = inject(NutritionService);
   protected readonly workoutService = inject(WorkoutService);
+  protected readonly waterService = inject(WaterService);
+
+  protected readonly customWaterAmount = signal(0);
+  protected readonly showCustomWater = signal(false);
 
   protected readonly today = { day: format(new Date(), 'EEEE'), date: format(new Date(), 'MMMM d, yyyy') };
   protected readonly greeting = (() => {
@@ -208,5 +215,24 @@ export class Dashboard {
     if (!seconds) return '—';
     const m = Math.floor(seconds / 60);
     return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`;
+  }
+
+  protected addWater(amount: number): void {
+    if (amount > 0) {
+      this.waterService.addEntry(amount);
+    }
+  }
+
+  protected addCustomWater(): void {
+    const amount = this.customWaterAmount();
+    if (amount > 0) {
+      this.waterService.addEntry(amount);
+      this.customWaterAmount.set(0);
+      this.showCustomWater.set(false);
+    }
+  }
+
+  protected removeWaterEntry(id: string): void {
+    this.waterService.removeEntry(id);
   }
 }

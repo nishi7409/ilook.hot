@@ -16,6 +16,7 @@ import { NutritionService } from '../../services/nutrition.service';
 import { ProgramService } from '../../services/program.service';
 import { ThemeService } from '../../services/theme.service';
 import { WorkoutService } from '../../services/workout.service';
+import { WaterService } from '../../services/water.service';
 
 @Component({
   selector: 'app-settings',
@@ -30,9 +31,12 @@ export class Settings {
   protected readonly programService = inject(ProgramService);
   protected readonly themeService = inject(ThemeService);
   protected readonly workoutService = inject(WorkoutService);
+  protected readonly waterService = inject(WaterService);
 
   protected readonly goalsDraft = signal<NutritionGoals>({ ...this.nutritionService.goals() });
+  protected readonly waterGoalDraft = signal(this.waterService.goal().dailyGoalMl);
   protected readonly saved = signal(false);
+  protected readonly waterSaved = signal(false);
 
   protected readonly estimatedFromMacros = computed(() => {
     const d = this.goalsDraft();
@@ -47,6 +51,12 @@ export class Settings {
     this.nutritionService.updateGoals(this.goalsDraft());
     this.saved.set(true);
     setTimeout(() => this.saved.set(false), 2000);
+  }
+
+  saveWaterGoal(): void {
+    this.waterService.updateGoal(this.waterGoalDraft());
+    this.waterSaved.set(true);
+    setTimeout(() => this.waterSaved.set(false), 2000);
   }
 
   downloadCsv(): void {
