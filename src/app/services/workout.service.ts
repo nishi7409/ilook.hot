@@ -13,12 +13,19 @@ export class WorkoutService {
   private readonly _sessions = signal<WorkoutSession[]>([]);
   private readonly _activeSession = signal<WorkoutSession | null>(null);
   private readonly _sessionStart = signal<number | null>(null);
+  private readonly _totalSessions = signal(0);
+  private readonly _currentPage = signal(1);
+  private readonly _pageSize = signal(20);
+  private readonly _loadingMore = signal(false);
+  private readonly _hasMore = computed(() => this._sessions().length < this._totalSessions());
 
   readonly sessions = this._sessions.asReadonly();
   readonly activeSession = this._activeSession.asReadonly();
   readonly hasActiveSession = computed(() => this._activeSession() !== null);
+  readonly loadingMore = this._loadingMore.asReadonly();
+  readonly hasMore = this._hasMore;
   readonly recentSessions = computed(() =>
-    [...this._sessions()].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 20),
+    [...this._sessions()].sort((a, b) => b.date.localeCompare(a.date)),
   );
 
   constructor() {
@@ -29,9 +36,36 @@ export class WorkoutService {
   }
 
   private loadSessions(): void {
-    this.http.get<WorkoutSession[]>('/api/workouts').subscribe({
-      next: (sessions) => this._sessions.set(sessions),
+    this.http.get<{ sessions: WorkoutSession[]; total: number; page: number; limit: number }>(
+      '/api/workouts?page=1&limit=20',
+    ).subscribe({
+      next: (res) => {
+        this._sessions.set(res.sessions);
+        this._totalSessions.set(res.total);
+        this._currentPage.set(1);
+      },
       error: (err) => console.error('Failed to load workout sessions', err),
+    });
+  }
+
+  loadMoreSessions(): void {
+    if (this._loadingMore() || !this._hasMore()) return;
+    const nextPage = this._currentPage() + 1;
+    const limit = this._pageSize();
+    this._loadingMore.set(true);
+    this.http.get<{ sessions: WorkoutSession[]; total: number; page: number; limit: number }>(
+      `/api/workouts?page=${nextPage}&limit=${limit}`,
+    ).subscribe({
+      next: (res) => {
+        this._sessions.update((s) => [...s, ...res.sessions]);
+        this._totalSessions.set(res.total);
+        this._currentPage.set(nextPage);
+        this._loadingMore.set(false);
+      },
+      error: (err) => {
+        console.error('Failed to load more sessions', err);
+        this._loadingMore.set(false);
+      },
     });
   }
 

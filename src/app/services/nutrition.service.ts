@@ -43,7 +43,8 @@ export class NutritionService {
     );
   });
 
-  readonly searchResults = computed<FoodItem[]>(() => []); // search handled client-side via OFF
+  private readonly _searchResults = signal<FoodItem[]>([]);
+  readonly searchResults = this._searchResults.asReadonly();
 
   readonly weeklyCalories = computed(() => {
     const data = this._weeklyData();
@@ -105,6 +106,16 @@ export class NutritionService {
 
   search(query: string): void {
     this._searchQuery.set(query);
+    if (!query.trim()) {
+      this._searchResults.set([]);
+      return;
+    }
+    this.http
+      .get<FoodItem[]>(`/api/nutrition/search?q=${encodeURIComponent(query.trim())}`)
+      .subscribe({
+        next: (results) => this._searchResults.set(results),
+        error: () => this._searchResults.set([]),
+      });
   }
 
   addEntry(food: FoodItem, servings: number, mealType: MealType): void {

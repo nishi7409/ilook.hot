@@ -18,8 +18,13 @@ import type { AuthEnv } from './middleware/auth.js';
 const app = new Hono<AuthEnv>();
 
 app.use('*', logger());
+const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? 'http://localhost:4200,http://localhost:4000')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+
 app.use('*', cors({
-  origin: (origin) => origin ?? '*',
+  origin: (origin) => allowedOrigins.includes(origin) ? origin : '',
   credentials: true,
   allowMethods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Cookie'],

@@ -74,6 +74,26 @@
           </button>
         </div>
 
+        <!-- Meal type selector -->
+        <div class="px-5 py-3 border-b border-border-light shrink-0">
+          <p class="text-[11px] font-medium text-muted uppercase tracking-widest font-body mb-2">Meal</p>
+          <div class="flex gap-2 flex-wrap" role="radiogroup" aria-label="Meal type">
+            @for (mt of mealTypes; track mt.value) {
+              <button
+                type="button"
+                role="radio"
+                [attr.aria-checked]="selectedMealType() === mt.value"
+                (click)="selectedMealType.set(mt.value)"
+                [class]="selectedMealType() === mt.value
+                  ? 'px-3 py-1.5 text-xs font-medium font-body rounded-full bg-primary text-white transition-colors'
+                  : 'px-3 py-1.5 text-xs font-medium font-body rounded-full border border-border-light text-muted hover:border-ink hover:text-ink transition-colors'"
+              >
+                {{ mt.label }}
+              </button>
+            }
+          </div>
+        </div>
+
         <!-- Option picker -->
         @if (addMode() === 'select') {
           <div class="p-4 flex flex-col gap-3">
@@ -464,7 +484,12 @@
           <div class="flex items-center gap-3 px-5 py-3">
             <div class="flex-1 min-w-0">
               <p class="text-ink text-sm font-medium font-body truncate">{{ entry.food.name }}</p>
-              <p class="text-muted text-[11px] font-body">{{ entry.servings }} × {{ entry.food.servingSize }} {{ entry.food.servingUnit }}</p>
+              <p class="text-muted text-[11px] font-body">
+                @if (entry.mealType && entry.mealType !== 'log') {
+                  <span class="capitalize">{{ entry.mealType }}</span> ·
+                }
+                {{ entry.servings }} × {{ entry.food.servingSize }} {{ entry.food.servingUnit }}
+              </p>
             </div>
             <div class="flex items-center gap-3 text-xs font-body shrink-0">
               <span class="text-ink font-medium">{{ entry.calories | number:'1.0-0' }} kcal</span>

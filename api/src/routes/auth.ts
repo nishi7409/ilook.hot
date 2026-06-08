@@ -8,11 +8,60 @@ import { users } from '../db/schema.js';
 import type { AuthEnv } from '../middleware/auth.js';
 import { authMiddleware } from '../middleware/auth.js';
 
+// ---------- In-memory rate limiter ----------
+interface RateLimitEntry {
+  timestamps: number[];
+}
+
+const rateLimitStore = new Map<string, RateLimitEntry>();
+
+// Cleanup expired entries every 10 minutes
+const CLEANUP_INTERVAL_MS = 10 * 60 * 1000;
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of rateLimitStore) {
+    // Remove timestamps older than 1 hour (longest window)
+    entry.timestamps = entry.timestamps.filter((t) => now - t < 60 * 60 * 1000);
+    if (entry.timestamps.length === 0) rateLimitStore.delete(key);
+  }
+}, CLEANUP_INTERVAL_MS);
+
+function checkRateLimit(ip: string, action: string, maxRequests: number, windowMs: number): boolean {
+  const key = `${action}:${ip}`;
+  const now = Date.now();
+  const entry = rateLimitStore.get(key) ?? { timestamps: [] };
+
+  // Remove timestamps outside the window
+  entry.timestamps = entry.timestamps.filter((t) => now - t < windowMs);
+
+  if (entry.timestamps.length >= maxRequests) {
+    rateLimitStore.set(key, entry);
+    return false; // rate limited
+  }
+
+  entry.timestamps.push(now);
+  rateLimitStore.set(key, entry);
+  return true; // allowed
+}
+
+function getClientIp(c: { req: { header: (name: string) => string | undefined } }): string {
+  return c.req.header('x-forwarded-for')?.split(',')[0]?.trim()
+    ?? c.req.header('x-real-ip')
+    ?? '0.0.0.0';
+}
+
+// ---------- Routes ----------
+
 const auth = new Hono<AuthEnv>();
 auth.use('*', authMiddleware);
 
 // POST /api/auth/signup
 auth.post('/signup', async (c) => {
+  const ip = getClientIp(c);
+  if (!checkRateLimit(ip, 'signup', 5, 60 * 60 * 1000)) {
+    return c.json({ error: 'Too many signup attempts. Try again later.' }, 429);
+  }
+
   const body = await c.req.json<{ email: string; password: string }>();
   const email = body.email?.toLowerCase().trim();
   const password = body.password;
@@ -40,6 +89,11 @@ auth.post('/signup', async (c) => {
 
 // POST /api/auth/signin
 auth.post('/signin', async (c) => {
+  const ip = getClientIp(c);
+  if (!checkRateLimit(ip, 'signin', 10, 15 * 60 * 1000)) {
+    return c.json({ error: 'Too many signin attempts. Try again later.' }, 429);
+  }
+
   const body = await c.req.json<{ email: string; password: string }>();
   const email = body.email?.toLowerCase().trim();
   const password = body.password;
