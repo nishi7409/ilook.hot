@@ -1,5 +1,5 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { DecimalPipe } from '@angular/common';
+import { ChangeDetectionStrategy, Component, computed, inject, signal, OnInit, PLATFORM_ID } from '@angular/core';
+import { isPlatformBrowser, DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { NgIconComponent, provideIcons } from '@ng-icons/core';
@@ -12,6 +12,9 @@ import {
   heroMoon,
   heroSun,
   heroArrowDownTray,
+  heroGlobeAlt,
+  heroClipboard,
+  heroLink,
 } from '@ng-icons/heroicons/outline';
 import type { NutritionGoals } from '../../models/nutrition.model';
 import { NutritionService } from '../../services/nutrition.service';
@@ -20,16 +23,27 @@ import { ThemeService, type ThemePreference } from '../../services/theme.service
 import { WorkoutService } from '../../services/workout.service';
 import { WaterService } from '../../services/water.service';
 
+interface ProfileSettings {
+  publicProfileEnabled: boolean;
+  profileSlug: string | null;
+  profileDisplayName: string | null;
+  profileShowStats: boolean;
+  profileShowPhotos: boolean;
+  profileShowProgram: boolean;
+  profileShowNutrition: boolean;
+}
+
 @Component({
   selector: 'app-settings',
   imports: [NgIconComponent, FormsModule, DecimalPipe],
-  providers: [provideIcons({ heroFire, heroBolt, heroCalendarDays, heroCheckCircle, heroComputerDesktop, heroMoon, heroSun, heroArrowDownTray })],
+  providers: [provideIcons({ heroFire, heroBolt, heroCalendarDays, heroCheckCircle, heroComputerDesktop, heroMoon, heroSun, heroArrowDownTray, heroGlobeAlt, heroClipboard, heroLink })],
   templateUrl: './settings.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-1 flex-col overflow-hidden min-w-0' },
 })
-export class Settings {
+export class Settings implements OnInit {
   private readonly http = inject(HttpClient);
+  private readonly platformId = inject(PLATFORM_ID);
   protected readonly nutritionService = inject(NutritionService);
   protected readonly programService = inject(ProgramService);
   protected readonly themeService = inject(ThemeService);
@@ -41,6 +55,31 @@ export class Settings {
   protected readonly saved = signal(false);
   protected readonly waterSaved = signal(false);
   protected readonly exporting = signal(false);
+
+  // Public profile state
+  protected readonly profileSettings = signal<ProfileSettings>({
+    publicProfileEnabled: false,
+    profileSlug: null,
+    profileDisplayName: null,
+    profileShowStats: true,
+    profileShowPhotos: false,
+    profileShowProgram: true,
+    profileShowNutrition: false,
+  });
+  protected readonly profileSlugDraft = signal('');
+  protected readonly profileDisplayNameDraft = signal('');
+  protected readonly slugAvailable = signal<boolean | null>(null);
+  protected readonly slugChecking = signal(false);
+  protected readonly profileSaving = signal(false);
+  protected readonly profileSaved = signal(false);
+  protected readonly linkCopied = signal(false);
+  private slugCheckTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  protected readonly profileUrl = computed(() => {
+    const slug = this.profileSlugDraft();
+    if (!slug) return '';
+    return `${isPlatformBrowser(this.platformId) ? window.location.origin : ''}/u/${slug}`;
+  });
 
   protected readonly themeOptions: { value: ThemePreference; label: string; icon: string }[] = [
     { value: 'dark', label: 'Dark', icon: 'heroMoon' },
@@ -58,6 +97,85 @@ export class Settings {
     const d = this.goalsDraft();
     return d.protein * 4 + d.carbs * 4 + d.fat * 9;
   });
+
+  ngOnInit(): void {
+    if (!isPlatformBrowser(this.platformId)) return;
+    this.loadProfileSettings();
+  }
+
+  private loadProfileSettings(): void {
+    this.http.get<ProfileSettings>('/api/profile/settings').subscribe({
+      next: (settings) => {
+        this.profileSettings.set(settings);
+        this.profileSlugDraft.set(settings.profileSlug ?? '');
+        this.profileDisplayNameDraft.set(settings.profileDisplayName ?? '');
+      },
+      error: () => { /* ignore — user may not have profile yet */ },
+    });
+  }
+
+  onSlugInput(value: string): void {
+    const slug = value.toLowerCase().replace(/[^a-z0-9-]/g, '');
+    this.profileSlugDraft.set(slug);
+    this.slugAvailable.set(null);
+
+    if (this.slugCheckTimeout) clearTimeout(this.slugCheckTimeout);
+    if (!slug || slug.length < 3) return;
+
+    this.slugChecking.set(true);
+    this.slugCheckTimeout = setTimeout(() => {
+      this.http.get<{ available: boolean }>(`/api/profile/check-slug/${slug}`).subscribe({
+        next: (res) => {
+          this.slugAvailable.set(res.available);
+          this.slugChecking.set(false);
+        },
+        error: () => this.slugChecking.set(false),
+      });
+    }, 400);
+  }
+
+  toggleProfileEnabled(): void {
+    const current = this.profileSettings();
+    this.profileSettings.set({ ...current, publicProfileEnabled: !current.publicProfileEnabled });
+  }
+
+  toggleProfileSetting(field: 'profileShowStats' | 'profileShowPhotos' | 'profileShowProgram' | 'profileShowNutrition'): void {
+    const current = this.profileSettings();
+    this.profileSettings.set({ ...current, [field]: !current[field] });
+  }
+
+  saveProfileSettings(): void {
+    this.profileSaving.set(true);
+    const settings = this.profileSettings();
+    const body = {
+      publicProfileEnabled: settings.publicProfileEnabled,
+      profileSlug: this.profileSlugDraft() || null,
+      profileDisplayName: this.profileDisplayNameDraft() || null,
+      profileShowStats: settings.profileShowStats,
+      profileShowPhotos: settings.profileShowPhotos,
+      profileShowProgram: settings.profileShowProgram,
+      profileShowNutrition: settings.profileShowNutrition,
+    };
+
+    this.http.patch<ProfileSettings>('/api/profile/settings', body).subscribe({
+      next: (updated) => {
+        this.profileSettings.set(updated);
+        this.profileSaving.set(false);
+        this.profileSaved.set(true);
+        setTimeout(() => this.profileSaved.set(false), 2000);
+      },
+      error: () => this.profileSaving.set(false),
+    });
+  }
+
+  copyProfileLink(): void {
+    const url = this.profileUrl();
+    if (!url) return;
+    navigator.clipboard.writeText(url).then(() => {
+      this.linkCopied.set(true);
+      setTimeout(() => this.linkCopied.set(false), 2000);
+    });
+  }
 
   updateGoalField(field: keyof NutritionGoals, value: number): void {
     this.goalsDraft.update((g) => ({ ...g, [field]: value }));

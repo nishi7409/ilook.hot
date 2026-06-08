@@ -57,6 +57,13 @@
       "when": 1749772800000,
       "tag": "0009_exercise_demos",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1749859200000,
+      "tag": "0010_public_profiles",
+      "breakpoints": true
     }
   ]
 }

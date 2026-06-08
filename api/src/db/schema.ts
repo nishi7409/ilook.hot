@@ -6,6 +6,13 @@ export const users = pgTable('users', {
   email: text('email').notNull().unique(),
   hashedPassword: text('hashed_password').notNull(),
   calendarHash: text('calendar_hash').notNull().unique(),
+  publicProfileEnabled: boolean('public_profile_enabled').default(false),
+  profileSlug: text('profile_slug').unique(),
+  profileDisplayName: text('profile_display_name'),
+  profileShowStats: boolean('profile_show_stats').default(true),
+  profileShowPhotos: boolean('profile_show_photos').default(false),
+  profileShowProgram: boolean('profile_show_program').default(true),
+  profileShowNutrition: boolean('profile_show_nutrition').default(false),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -159,6 +166,7 @@ export const progressPhotos = pgTable('progress_photos', {
   category: text('category').notNull(), // front | side | back | other
   bodyweight: real('bodyweight'),
   notes: text('notes'),
+  isPublic: boolean('is_public').default(false),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => [

@@ -1,0 +1,151 @@
+<div class="min-h-screen bg-canvas text-ink">
+  @if (loading()) {
+    <div class="flex items-center justify-center min-h-screen">
+      <p class="text-muted font-body text-sm">Loading profile…</p>
+    </div>
+  } @else if (error()) {
+    <div class="flex flex-col items-center justify-center min-h-screen gap-4 px-4">
+      <div class="w-16 h-16 rounded-full bg-soft-stone flex items-center justify-center">
+        <span class="text-2xl">👤</span>
+      </div>
+      <h1 class="font-display text-xl font-medium text-ink">Profile not found</h1>
+      <p class="text-muted text-sm font-body text-center max-w-sm">This profile doesn't exist or hasn't been made public yet.</p>
+      <a href="/" class="mt-2 px-5 py-2.5 bg-primary text-white text-sm font-medium rounded-full font-body hover:bg-ink transition-colors">
+        Go home
+      </a>
+    </div>
+  } @else if (profileData(); as p) {
+    <!-- Header -->
+    <div class="border-b border-border-light bg-canvas">
+      <div class="max-w-3xl mx-auto px-4 md:px-8 py-8 md:py-12">
+        <div class="flex items-center gap-4">
+          <div class="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+            <span class="text-primary font-display text-xl font-bold">{{ initials() }}</span>
+          </div>
+          <div>
+            <h1 class="font-display text-2xl md:text-3xl font-semibold text-ink tracking-tight">{{ p.displayName }}</h1>
+            <p class="text-muted text-sm font-body mt-0.5">Member since {{ memberSince() }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="max-w-3xl mx-auto px-4 md:px-8 py-6 md:py-8 flex flex-col gap-6">
+
+      <!-- Stats -->
+      @if (p.showStats && statsData(); as stats) {
+        <section class="bg-canvas rounded-2xl border border-border-light overflow-hidden" aria-labelledby="stats-heading">
+          <div class="px-5 md:px-6 py-4 border-b border-border-light">
+            <p class="text-[11px] font-medium text-muted uppercase tracking-widest font-body mb-0.5">Performance</p>
+            <h2 id="stats-heading" class="font-display text-ink text-lg font-medium">Stats</h2>
+          </div>
+          <div class="px-5 md:px-6 py-5">
+            <div class="grid grid-cols-2 gap-4 mb-6">
+              <div class="bg-soft-stone rounded-xl p-4">
+                <p class="text-[11px] text-muted font-body uppercase tracking-wide mb-1">Total workouts</p>
+                <p class="font-display text-2xl font-semibold text-ink">{{ stats.totalWorkouts }}</p>
+              </div>
+              <div class="bg-soft-stone rounded-xl p-4">
+                <p class="text-[11px] text-muted font-body uppercase tracking-wide mb-1">Current streak</p>
+                <p class="font-display text-2xl font-semibold text-ink">{{ stats.currentStreak }} <span class="text-sm font-normal text-muted">days</span></p>
+              </div>
+            </div>
+            @if (stats.prs.length > 0) {
+              <div>
+                <p class="text-[11px] text-muted font-body uppercase tracking-widest mb-3">Personal records (est. 1RM)</p>
+                <div class="flex flex-col gap-2">
+                  @for (pr of stats.prs; track pr.exercise) {
+                    <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-soft-stone">
+                      <span class="text-sm font-body text-ink">{{ pr.exercise }}</span>
+                      <span class="text-sm font-display font-medium text-ink">{{ pr.estimated1RM }} lbs</span>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        </section>
+      }
+
+      <!-- Program -->
+      @if (p.showProgram && programData(); as prog) {
+        <section class="bg-canvas rounded-2xl border border-border-light overflow-hidden" aria-labelledby="program-heading">
+          <div class="px-5 md:px-6 py-4 border-b border-border-light">
+            <p class="text-[11px] font-medium text-muted uppercase tracking-widest font-body mb-0.5">Training</p>
+            <h2 id="program-heading" class="font-display text-ink text-lg font-medium">{{ prog.name }}</h2>
+          </div>
+          <div class="px-5 md:px-6 py-5">
+            <div class="flex flex-col gap-2">
+              @for (day of prog.days; track day.name) {
+                <div class="flex items-center justify-between py-2.5 px-3 rounded-lg bg-soft-stone">
+                  <span class="text-sm font-body text-ink">{{ day.name }}</span>
+                  @if (day.isRest) {
+                    <span class="text-xs text-muted font-body">Rest</span>
+                  } @else {
+                    <span class="text-xs text-muted font-body">{{ day.exerciseCount }} exercise{{ day.exerciseCount === 1 ? '' : 's' }}</span>
+                  }
+                </div>
+              }
+            </div>
+          </div>
+        </section>
+      }
+
+      <!-- Nutrition -->
+      @if (p.showNutrition && nutritionData(); as nutr) {
+        <section class="bg-canvas rounded-2xl border border-border-light overflow-hidden" aria-labelledby="nutrition-heading">
+          <div class="px-5 md:px-6 py-4 border-b border-border-light">
+            <p class="text-[11px] font-medium text-muted uppercase tracking-widest font-body mb-0.5">Nutrition</p>
+            <h2 id="nutrition-heading" class="font-display text-ink text-lg font-medium">7-day averages</h2>
+          </div>
+          <div class="px-5 md:px-6 py-5">
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div class="bg-soft-stone rounded-xl p-4 text-center">
+                <p class="text-[11px] text-muted font-body uppercase tracking-wide mb-1">Calories</p>
+                <p class="font-display text-xl font-semibold text-ink">{{ nutr.avgCalories }}</p>
+              </div>
+              <div class="bg-soft-stone rounded-xl p-4 text-center">
+                <p class="text-[11px] text-muted font-body uppercase tracking-wide mb-1">Protein</p>
+                <p class="font-display text-xl font-semibold text-ink">{{ nutr.avgProtein }}g</p>
+              </div>
+              <div class="bg-soft-stone rounded-xl p-4 text-center">
+                <p class="text-[11px] text-muted font-body uppercase tracking-wide mb-1">Carbs</p>
+                <p class="font-display text-xl font-semibold text-ink">{{ nutr.avgCarbs }}g</p>
+              </div>
+              <div class="bg-soft-stone rounded-xl p-4 text-center">
+                <p class="text-[11px] text-muted font-body uppercase tracking-wide mb-1">Fat</p>
+                <p class="font-display text-xl font-semibold text-ink">{{ nutr.avgFat }}g</p>
+              </div>
+            </div>
+          </div>
+        </section>
+      }
+
+      <!-- Photos -->
+      @if (p.showPhotos && photosData(); as photos) {
+        @if (photos.length > 0) {
+          <section class="bg-canvas rounded-2xl border border-border-light overflow-hidden" aria-labelledby="photos-heading">
+            <div class="px-5 md:px-6 py-4 border-b border-border-light">
+              <p class="text-[11px] font-medium text-muted uppercase tracking-widest font-body mb-0.5">Progress</p>
+              <h2 id="photos-heading" class="font-display text-ink text-lg font-medium">Photos</h2>
+            </div>
+            <div class="px-5 md:px-6 py-5">
+              <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                @for (photo of photos; track photo.id) {
+                  <div class="aspect-square rounded-xl overflow-hidden bg-soft-stone">
+                    <img [src]="'/' + photo.photoUrl" [alt]="photo.category + ' photo from ' + photo.date" class="w-full h-full object-cover" loading="lazy" />
+                  </div>
+                }
+              </div>
+            </div>
+          </section>
+        }
+      }
+
+      <!-- Footer -->
+      <div class="text-center py-4">
+        <p class="text-muted text-xs font-body">Powered by <a href="/" class="text-primary hover:underline">ilook.hot</a></p>
+      </div>
+    </div>
+  }
+</div>
