@@ -7,6 +7,7 @@ import {
   heroBars3,
   heroBolt,
   heroCalendarDays,
+  heroCamera,
   heroFire,
   heroSquares2x2,
   heroXMark,
@@ -19,7 +20,7 @@ import { AuthModal } from '../auth-modal/auth-modal';
 @Component({
   selector: 'app-shell',
   imports: [RouterOutlet, RouterLink, RouterLinkActive, NgIconComponent, AuthModal, NgOptimizedImage],
-  providers: [provideIcons({ heroSquares2x2, heroCalendarDays, heroFire, heroBolt, heroBars3, heroXMark, heroAdjustmentsHorizontal, heroArrowRightOnRectangle })],
+  providers: [provideIcons({ heroSquares2x2, heroCalendarDays, heroFire, heroBolt, heroCamera, heroBars3, heroXMark, heroAdjustmentsHorizontal, heroArrowRightOnRectangle })],
   templateUrl: './app-shell.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

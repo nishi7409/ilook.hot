@@ -1,4 +1,4 @@
-import { pgTable, text, boolean, integer, timestamp, numeric, uniqueIndex } from 'drizzle-orm/pg-core';
+import { pgTable, text, boolean, integer, timestamp, numeric, uniqueIndex, real, date, index } from 'drizzle-orm/pg-core';
 
 // Users (Lucia requires id: text primary key)
 export const users = pgTable('users', {
@@ -148,3 +148,18 @@ export const nutritionGoals = pgTable('nutrition_goals', {
   carbs: integer('carbs').default(250).notNull(),
   fat: integer('fat').default(80).notNull(),
 });
+
+// Progress photos
+export const progressPhotos = pgTable('progress_photos', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  date: text('date').notNull(), // yyyy-MM-dd
+  photoUrl: text('photo_url').notNull(),
+  category: text('category').notNull(), // front | side | back | other
+  bodyweight: real('bodyweight'),
+  notes: text('notes'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => [
+  index('progress_photos_user_date_idx').on(table.userId, table.date),
+]);
