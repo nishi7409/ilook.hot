@@ -1,11 +1,13 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
 import { NgIconComponent, provideIcons } from '@ng-icons/core';
 import {
   heroBolt,
   heroCalendarDays,
   heroCheckCircle,
+  heroComputerDesktop,
   heroFire,
   heroMoon,
   heroSun,
@@ -14,19 +16,20 @@ import {
 import type { NutritionGoals } from '../../models/nutrition.model';
 import { NutritionService } from '../../services/nutrition.service';
 import { ProgramService } from '../../services/program.service';
-import { ThemeService } from '../../services/theme.service';
+import { ThemeService, type ThemePreference } from '../../services/theme.service';
 import { WorkoutService } from '../../services/workout.service';
 import { WaterService } from '../../services/water.service';
 
 @Component({
   selector: 'app-settings',
   imports: [NgIconComponent, FormsModule, DecimalPipe],
-  providers: [provideIcons({ heroFire, heroBolt, heroCalendarDays, heroCheckCircle, heroMoon, heroSun, heroArrowDownTray })],
+  providers: [provideIcons({ heroFire, heroBolt, heroCalendarDays, heroCheckCircle, heroComputerDesktop, heroMoon, heroSun, heroArrowDownTray })],
   templateUrl: './settings.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-1 flex-col overflow-hidden min-w-0' },
 })
 export class Settings {
+  private readonly http = inject(HttpClient);
   protected readonly nutritionService = inject(NutritionService);
   protected readonly programService = inject(ProgramService);
   protected readonly themeService = inject(ThemeService);
@@ -37,6 +40,19 @@ export class Settings {
   protected readonly waterGoalDraft = signal(this.waterService.goal().dailyGoalMl);
   protected readonly saved = signal(false);
   protected readonly waterSaved = signal(false);
+  protected readonly exporting = signal(false);
+
+  protected readonly themeOptions: { value: ThemePreference; label: string; icon: string }[] = [
+    { value: 'dark', label: 'Dark', icon: 'heroMoon' },
+    { value: 'light', label: 'Light', icon: 'heroSun' },
+    { value: 'system', label: 'System', icon: 'heroComputerDesktop' },
+  ];
+
+  protected readonly activeThemeLabel = computed(() => {
+    const pref = this.themeService.preference();
+    if (pref === 'system') return this.themeService.systemLabel();
+    return pref === 'dark' ? 'Dark theme active' : 'Light theme active';
+  });
 
   protected readonly estimatedFromMacros = computed(() => {
     const d = this.goalsDraft();
@@ -92,5 +108,23 @@ export class Settings {
     link.download = `ilook-hot-workouts-${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
     URL.revokeObjectURL(url);
+  }
+
+  downloadFullExport(): void {
+    this.exporting.set(true);
+    this.http.get('/api/export').subscribe({
+      next: (data) => {
+        const json = JSON.stringify(data, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `ilook-hot-export-${new Date().toISOString().slice(0, 10)}.json`;
+        link.click();
+        URL.revokeObjectURL(url);
+        this.exporting.set(false);
+      },
+      error: () => this.exporting.set(false),
+    });
   }
 }
