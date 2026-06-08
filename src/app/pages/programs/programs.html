@@ -229,13 +229,13 @@
       @if (selectedProgram(); as program) {
         <div class="flex-1 overflow-hidden flex flex-col">
 
-          <!-- Mobile: selected program strip -->
-          <div class="md:hidden px-3 py-2 border-b border-border-light bg-canvas flex items-center gap-2 shrink-0">
-            <span class="w-2 h-2 rounded-full shrink-0" [style.background]="programColors().get(program.id)"></span>
-            <span class="text-ink text-sm font-medium font-body flex-1 truncate min-w-0">{{ program.name }}</span>
+          <!-- Mobile: selected program strip + switcher -->
+          <div class="md:hidden px-3 py-2.5 border-b border-border-light bg-canvas flex items-center gap-2 shrink-0">
+            <span class="w-2.5 h-2.5 rounded-full shrink-0" [style.background]="programColors().get(program.id)"></span>
             <button type="button" (click)="showProgramList.set(true)"
-              class="text-primary text-xs font-body font-medium shrink-0 px-2 py-1 rounded-lg hover:bg-soft-stone transition-colors">
-              Switch
+              class="flex-1 flex items-center gap-1.5 min-w-0 active:bg-soft-stone rounded-lg px-1 -mx-1 py-0.5 transition-colors">
+              <span class="text-ink text-sm font-medium font-body flex-1 truncate min-w-0 text-left">{{ program.name }}</span>
+              <ng-icon name="heroChevronRight" size="12" class="text-muted shrink-0" style="transform: rotate(90deg)" />
             </button>
           </div>
 
@@ -707,14 +707,25 @@
           <ng-icon name="heroCalendarDays" class="text-hairline mb-4" size="48" />
           <h2 class="font-display text-ink text-xl font-medium mb-2">No program selected</h2>
           <p class="text-muted text-sm font-body mb-6">Create a program or select one from the list.</p>
-          <button
-            type="button"
-            (click)="showNewProgram.set(true)"
-            class="inline-flex items-center gap-2 px-5 py-3 bg-primary text-white text-sm font-medium rounded-full font-body hover:bg-ink transition-colors"
-          >
-            <ng-icon name="heroPlus" size="16" />
-            Create program
-          </button>
+          <div class="flex flex-col gap-3">
+            <button
+              type="button"
+              (click)="showNewProgram.set(true)"
+              class="inline-flex items-center gap-2 px-5 py-3 bg-primary text-white text-sm font-medium rounded-full font-body hover:bg-ink transition-colors"
+            >
+              <ng-icon name="heroPlus" size="16" />
+              Create program
+            </button>
+            @if (programService.programs().length > 0) {
+              <button
+                type="button"
+                (click)="showProgramList.set(true)"
+                class="md:hidden inline-flex items-center justify-center gap-2 px-5 py-3 bg-soft-stone text-ink text-sm font-medium rounded-full font-body hover:bg-hairline transition-colors"
+              >
+                Browse my programs ({{ programService.programs().length }})
+              </button>
+            }
+          </div>
         </div>
       }
 

@@ -158,6 +158,11 @@ export class ProgramService {
       next: (programs) => {
         this._programs.set(programs);
         this.loading.set(false);
+        // Auto-select if nothing selected yet: prefer active program, then first
+        if (!this._selectedId() && programs.length > 0) {
+          const active = programs.find((p) => p.isActive);
+          this._selectedId.set(active?.id ?? programs[0].id);
+        }
       },
       error: (err) => {
         console.error('Failed to load programs', err);
