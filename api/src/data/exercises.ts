@@ -448,6 +448,11 @@ export async function seedExercises(database: DB): Promise<void> {
     )
   `);
 
+  // Ensure demo_url column exists (table may predate the column addition)
+  await database.execute(sql`
+    ALTER TABLE exercises ADD COLUMN IF NOT EXISTS demo_url text
+  `);
+
   // Only insert if table is empty
   const existing = await database.select({ id: exercises.id }).from(exercises).limit(1);
   if (existing.length > 0) return;
