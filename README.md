@@ -1,12 +1,18 @@
-# ilook.hot
+<p align="center">
+  <img src="public/logo.png" alt="ilook.hot" width="260">
+</p>
 
-> you want to look hot. abs, a PR, feeling great in your own skin — you define it. we help you get there.
+<p align="center">
+  <strong>you want to look hot.</strong> abs, a PR, feeling great in your own skin — you define it. we help you get there.
+</p>
 
-A fitness tracking PWA — workout programs, calorie logging, progressive overload tracking — all in one place. No app store required. Install directly from your browser on iPhone or Android.
-
-**Live:** [ilook.hot](https://ilook.hot) · **Self-hostable** · **100% open source**
+<p align="center">
+  <a href="https://ilook.hot">ilook.hot</a> · Self-hostable · 100% open source · PWA
+</p>
 
 ---
+
+A fitness tracking PWA — workout programs, calorie logging, barcode food scanning, progressive overload tracking — all in one place. No app store required. Install directly from your browser on iPhone or Android.
 
 ## Why this exists
 
@@ -21,7 +27,8 @@ The majority of this app was vibe coded with [Claude Code](https://claude.ai/cod
 - **Program builder** — design your split (push/pull/legs, upper/lower, 5/3/1, whatever), name each day, add exercises with sets/reps
 - **Schedule view** — drag training days onto a calendar, set recurrence (every N days/weeks/months), preview before saving
 - **iCal sync** — unique per-user subscription URL; add your schedule to Google Calendar, Apple Calendar, or any iCal app
-- **Calorie tracking** — powered by Open Food Facts + USDA database, full macro breakdown
+- **Calorie tracking** — continuous food log with full macro breakdown; powered by Open Food Facts + USDA database
+- **Barcode scanner** — scan a product barcode with your camera; auto-looks up nutrition data and logs it instantly (works on Android/iOS Chrome, falls back to zxing on desktop)
 - **Workout tracking** — log sets/reps/weight, track progressive overload
 - **PWA** — installable on iPhone (Safari → Add to Home Screen) and Android (Chrome → Install app), works offline
 
@@ -32,7 +39,7 @@ The majority of this app was vibe coded with [Claude Code](https://claude.ai/cod
 | Layer | Choice |
 |---|---|
 | | **Frontend** |
-| Framework | Angular 21 (standalone components, SSR) |
+| Framework | Angular 20 (standalone components, SSR) |
 | Styling | Tailwind CSS v4 |
 | Calendar | angular-calendar |
 | Icons | ng-icons + Heroicons |
@@ -125,13 +132,13 @@ PORT=80                        # host port nginx binds to
 
 The iCal subscription URL is domain-dynamic — it reads `document.location.origin` at runtime so it works on any domain automatically.
 
-Pre-built images are published to [GitHub Container Registry](https://github.com/nishi7409/ilook.hot/pkgs/container/ilook.hot-api) on every release. Pin a specific version by replacing `latest` with a version tag (e.g. `v1.0.0`) in `docker-compose.prod.yml`.
+Pre-built images are published to [GitHub Container Registry](https://github.com/nishi7409/ilook.hot/pkgs/container/ilook.hot-api) on every release. Pin a specific version by replacing `latest` with a version tag (e.g. `v0.0.12`) in `docker-compose.prod.yml`.
 
 ### Cutting a release
 
 ```bash
-git tag v1.2.3
-git push origin v1.2.3
+git tag v0.0.13
+git push origin v0.0.13
 ```
 
 GitHub Actions builds both Docker images, pushes them to GHCR, and creates a GitHub Release automatically. No manual steps needed.
@@ -143,16 +150,24 @@ GitHub Actions builds both Docker images, pushes them to GHCR, and creates a Git
 ```
 src/
 ├── app/
-│   ├── components/       # Shared components (auth modal, nav, etc.)
-│   ├── models/           # TypeScript interfaces (Program, Exercise, etc.)
+│   ├── components/       # Shared components (auth modal, app shell, etc.)
+│   ├── models/           # TypeScript interfaces (Program, Exercise, Nutrition, etc.)
 │   ├── pages/
 │   │   ├── landing/      # Marketing homepage
+│   │   ├── dashboard/    # Overview + stats
 │   │   ├── programs/     # Program builder + schedule calendar
-│   │   ├── workouts/     # Workout logging
-│   │   ├── calories/     # Calorie tracking
-│   │   └── dashboard/    # Overview
-│   └── services/         # ProgramService, etc.
+│   │   ├── workouts/     # Workout logging + progressive overload
+│   │   ├── calories/     # Calorie + macro tracking with barcode scanner
+│   │   └── settings/     # Goals, preferences
+│   └── services/         # ProgramService, NutritionService, AuthService, etc.
 └── styles.css            # Global styles + Tailwind + calendar overrides
+
+api/
+├── src/
+│   ├── routes/           # Hono route handlers (auth, programs, workouts, nutrition, etc.)
+│   ├── db/               # Drizzle schema + connection
+│   └── middleware/       # Auth middleware
+└── drizzle/              # SQL migrations
 ```
 
 ---
