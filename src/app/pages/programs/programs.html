@@ -46,19 +46,56 @@
               New
             </button>
           </div>
+          <div class="px-5 pb-2 flex gap-2">
+            <button type="button" (click)="showTemplateModal.set(true); showProgramList.set(false)" class="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-soft-stone rounded-lg text-xs font-medium text-ink font-body hover:bg-border-light transition-colors">
+              <ng-icon name="heroSparkles" size="14" />
+              Browse templates
+            </button>
+          </div>
           <nav class="overflow-y-auto p-3 flex flex-col gap-1" aria-label="Program list">
             @for (program of programService.programs(); track program.id) {
-              <button type="button" (click)="selectProgram(program.id); showProgramList.set(false)"
-                class="w-full text-left px-3 py-3 rounded-xl flex items-center gap-3 transition-colors"
-                [class]="selectedProgram()?.id === program.id ? 'bg-soft-stone' : 'hover:bg-soft-stone/60'">
-                <span class="w-2.5 h-2.5 rounded-full shrink-0" [style.background]="programColors().get(program.id)"></span>
-                <div class="flex-1 min-w-0">
-                  <p class="text-ink text-sm font-medium font-body truncate">{{ program.name }}</p>
-                  <p class="text-muted text-[11px] font-body">{{ program.days.length }} days</p>
-                </div>
-              </button>
+              <div class="flex items-center gap-1">
+                <button type="button" (click)="selectProgram(program.id); showProgramList.set(false)"
+                  class="flex-1 text-left px-3 py-3 rounded-xl flex items-center gap-3 transition-colors min-w-0"
+                  [class]="selectedProgram()?.id === program.id ? 'bg-soft-stone' : 'hover:bg-soft-stone/60'">
+                  <span class="w-2.5 h-2.5 rounded-full shrink-0" [style.background]="programColors().get(program.id)"></span>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-ink text-sm font-medium font-body truncate">{{ program.name }}</p>
+                    <p class="text-muted text-[11px] font-body">{{ program.days.length }} days</p>
+                  </div>
+                </button>
+                <button type="button" (click)="programService.duplicateProgram(program.id)" class="shrink-0 p-2 text-muted hover:text-ink transition-colors" aria-label="Duplicate program" title="Duplicate">
+                  <ng-icon name="heroDocumentDuplicate" size="16" />
+                </button>
+                <button type="button" (click)="deleteProgram(program.id)" class="shrink-0 p-2 text-muted hover:text-red-400 transition-colors" aria-label="Delete program" title="Delete">
+                  <ng-icon name="heroTrash" size="16" />
+                </button>
+              </div>
             }
           </nav>
+        </div>
+      </div>
+    }
+
+    <!-- Mobile create program modal (shown when showNewProgram is true on mobile) -->
+    @if (showNewProgram()) {
+      <div class="fixed inset-0 z-50 flex items-end sm:items-center justify-center md:hidden" role="dialog" aria-modal="true" aria-label="Create program">
+        <button type="button" class="absolute inset-0 bg-ink/40 backdrop-blur-sm" (click)="showNewProgram.set(false)" aria-label="Close"></button>
+        <div class="relative bg-canvas rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm mx-0 sm:mx-4 p-5 z-10">
+          <h3 class="font-display text-ink text-lg font-medium mb-3">New program</h3>
+          <input
+            type="text"
+            [ngModel]="newProgramName()"
+            (ngModelChange)="newProgramName.set($event)"
+            placeholder="Program name…"
+            class="w-full text-sm font-body border border-border-light rounded-lg px-3 py-3 outline-none focus:border-ink bg-canvas"
+            (keydown.enter)="createProgram()"
+            (keydown.escape)="showNewProgram.set(false)"
+          />
+          <div class="flex gap-2 mt-3">
+            <button type="button" (click)="createProgram()" class="flex-1 bg-primary text-white text-sm font-semibold py-3 rounded-xl font-body hover:bg-ink transition-colors shadow-sm">Create</button>
+            <button type="button" (click)="showNewProgram.set(false)" class="px-4 py-3 text-muted text-sm font-body hover:text-ink transition-colors rounded-xl">Cancel</button>
+          </div>
         </div>
       </div>
     }
@@ -1016,7 +1053,7 @@
 
             <!-- Calendar grid -->
             <div class="overflow-x-auto -mx-3 md:mx-0 px-3 md:px-0">
-            <div class="cal-container rounded-2xl border border-border-light overflow-hidden shadow-sm min-w-[600px] md:min-w-0">
+            <div class="cal-container rounded-2xl border border-border-light overflow-hidden shadow-sm min-w-0 md:min-w-[600px]">
               <mwl-calendar-month-view
                 [viewDate]="calendarDate()"
                 [events]="calendarEvents()"
