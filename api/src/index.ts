@@ -15,6 +15,8 @@ import nutritionRoutes from './routes/nutrition.js';
 import photoRoutes from './routes/photos.js';
 import waterRoutes from './routes/water.js';
 import statsRoutes from './routes/stats.js';
+import pushRoutes from './routes/push.js';
+import { sendWorkoutReminders } from './jobs/notify.js';
 import { seedExercises } from './data/exercises.js';
 import { authMiddleware } from './middleware/auth.js';
 import type { AuthEnv } from './middleware/auth.js';
@@ -46,10 +48,17 @@ app.route('/api/nutrition', nutritionRoutes);
 app.route('/api/photos', photoRoutes);
 app.route('/api/water', waterRoutes);
 app.route('/api/stats', statsRoutes);
+app.route('/api/push', pushRoutes);
 
 app.use('/uploads/*', serveStatic({ root: './' }));
 
 app.get('/api/health', (c) => c.json({ ok: true }));
+
+// Cron endpoint: trigger workout reminder notifications
+app.get('/api/push/notify', async (c) => {
+  const result = await sendWorkoutReminders();
+  return c.json(result);
+});
 
 app.onError((err, c) => {
   console.error(err);

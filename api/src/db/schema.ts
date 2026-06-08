@@ -180,3 +180,13 @@ export const waterGoals = pgTable('water_goals', {
   userId: text('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
   dailyGoalMl: integer('daily_goal_ml').default(2500).notNull(),
 });
+
+// Push notification subscriptions
+export const pushSubscriptions = pgTable('push_subscriptions', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  endpoint: text('endpoint').notNull(),
+  p256dh: text('p256dh').notNull(),
+  auth: text('auth').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});

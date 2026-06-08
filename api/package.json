@@ -19,7 +19,8 @@
     "hono": "^4.7.11",
     "lucia": "^3.2.2",
     "nanoid": "^5.1.5",
-    "postgres": "^3.4.5"
+    "postgres": "^3.4.5",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@types/node": "^22.13.14",

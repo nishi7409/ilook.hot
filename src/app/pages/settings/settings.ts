@@ -10,10 +10,12 @@ import {
   heroMoon,
   heroSun,
   heroArrowDownTray,
+  heroBellAlert,
 } from '@ng-icons/heroicons/outline';
 import type { NutritionGoals } from '../../models/nutrition.model';
 import { NutritionService } from '../../services/nutrition.service';
 import { ProgramService } from '../../services/program.service';
+import { PushService } from '../../services/push.service';
 import { ThemeService } from '../../services/theme.service';
 import { WorkoutService } from '../../services/workout.service';
 import { WaterService } from '../../services/water.service';
@@ -21,7 +23,7 @@ import { WaterService } from '../../services/water.service';
 @Component({
   selector: 'app-settings',
   imports: [NgIconComponent, FormsModule, DecimalPipe],
-  providers: [provideIcons({ heroFire, heroBolt, heroCalendarDays, heroCheckCircle, heroMoon, heroSun, heroArrowDownTray })],
+  providers: [provideIcons({ heroFire, heroBolt, heroCalendarDays, heroCheckCircle, heroMoon, heroSun, heroArrowDownTray, heroBellAlert })],
   templateUrl: './settings.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-1 flex-col overflow-hidden min-w-0' },
@@ -29,6 +31,7 @@ import { WaterService } from '../../services/water.service';
 export class Settings {
   protected readonly nutritionService = inject(NutritionService);
   protected readonly programService = inject(ProgramService);
+  protected readonly pushService = inject(PushService);
   protected readonly themeService = inject(ThemeService);
   protected readonly workoutService = inject(WorkoutService);
   protected readonly waterService = inject(WaterService);
@@ -57,6 +60,18 @@ export class Settings {
     this.waterService.updateGoal(this.waterGoalDraft());
     this.waterSaved.set(true);
     setTimeout(() => this.waterSaved.set(false), 2000);
+  }
+
+  togglePush(): void {
+    if (this.pushService.subscribed()) {
+      this.pushService.unsubscribe();
+    } else {
+      this.pushService.subscribe();
+    }
+  }
+
+  sendTestPush(): void {
+    this.pushService.sendTest();
   }
 
   downloadCsv(): void {
