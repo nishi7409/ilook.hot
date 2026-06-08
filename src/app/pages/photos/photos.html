@@ -1,0 +1,319 @@
+<div class="flex flex-1 flex-col overflow-hidden min-w-0">
+
+  <!-- Top bar -->
+  <div class="h-14 md:h-16 px-4 md:px-8 flex items-center justify-between border-b border-border-light bg-canvas shrink-0">
+    <div>
+      <h1 class="font-display text-ink text-lg md:text-xl font-medium tracking-tight">Progress Photos</h1>
+      <p class="text-muted text-xs font-body hidden sm:block">Track your visual transformation</p>
+    </div>
+    <div class="flex items-center gap-2">
+      @for (tab of tabs; track tab.id) {
+        <button
+          type="button"
+          (click)="activeTab.set(tab.id)"
+          [class]="activeTab() === tab.id
+            ? 'px-3 py-1.5 text-xs font-medium font-body rounded-full bg-coral text-white transition-colors'
+            : 'px-3 py-1.5 text-xs font-medium font-body rounded-full border border-border-light text-muted hover:text-ink transition-colors'"
+        >{{ tab.label }}</button>
+      }
+    </div>
+  </div>
+
+  <div class="flex-1 overflow-y-auto min-h-0">
+  <div class="p-4 md:p-6 flex flex-col gap-4 md:gap-5">
+
+    <!-- ── Upload section ──────────────────────────────────────────────────── -->
+    <section class="bg-canvas rounded-xl border border-border-light p-4 md:p-6" aria-labelledby="upload-heading">
+      <p class="text-[11px] font-medium text-muted uppercase tracking-widest font-body mb-1">New photo</p>
+      <h2 id="upload-heading" class="font-display text-ink text-xl md:text-2xl font-medium tracking-tight mb-4">Upload a progress photo</h2>
+
+      <!-- Photo preview / picker -->
+      <div class="flex flex-col sm:flex-row gap-4">
+        <button
+          type="button"
+          (click)="fileInput.click()"
+          class="w-full sm:w-40 h-40 rounded-xl border-2 border-dashed border-border-light hover:border-coral/50 flex flex-col items-center justify-center gap-2 text-muted hover:text-coral transition-colors bg-soft-stone/30 shrink-0"
+          aria-label="Select photo"
+        >
+          @if (previewUrl()) {
+            <img [src]="previewUrl()" alt="Photo preview" class="w-full h-full object-cover rounded-xl" />
+          } @else {
+            <ng-icon name="heroCamera" size="28" />
+            <span class="text-xs font-body">Tap to select</span>
+          }
+        </button>
+        <input
+          #fileInput
+          type="file"
+          accept="image/*"
+          capture="environment"
+          class="hidden"
+          (change)="onFileSelected($event)"
+          aria-label="Photo file input"
+        />
+
+        <div class="flex flex-col gap-3 flex-1">
+          <!-- Date picker -->
+          <div>
+            <label for="photo-date" class="text-[11px] font-medium text-muted uppercase tracking-widest font-body block mb-1">Date</label>
+            <input
+              id="photo-date"
+              type="date"
+              [value]="uploadDate()"
+              (input)="uploadDate.set(asInputValue($event))"
+              class="w-full px-3 py-2 text-sm font-body text-ink bg-soft-stone/50 border border-border-light rounded-lg outline-none focus:border-coral/50 transition-colors"
+            />
+          </div>
+
+          <!-- Category pills -->
+          <div>
+            <span class="text-[11px] font-medium text-muted uppercase tracking-widest font-body block mb-1.5">Pose</span>
+            <div class="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Photo category">
+              @for (cat of categories; track cat) {
+                <button
+                  type="button"
+                  role="radio"
+                  [attr.aria-checked]="uploadCategory() === cat"
+                  (click)="uploadCategory.set(cat)"
+                  [class]="uploadCategory() === cat
+                    ? 'px-3 py-1.5 text-xs font-medium font-body rounded-full bg-coral text-white transition-colors'
+                    : 'px-3 py-1.5 text-xs font-medium font-body rounded-full border border-border-light text-muted hover:text-ink hover:border-ink/20 transition-colors'"
+                >{{ cat | titlecase }}</button>
+              }
+            </div>
+          </div>
+
+          <!-- Bodyweight + notes row -->
+          <div class="flex gap-3">
+            <div class="w-28">
+              <label for="photo-weight" class="text-[11px] font-medium text-muted uppercase tracking-widest font-body block mb-1">Weight</label>
+              <input
+                id="photo-weight"
+                type="number"
+                placeholder="lbs"
+                [value]="uploadBodyweight()"
+                (input)="uploadBodyweight.set(asNumberValue($event))"
+                min="0"
+                step="0.1"
+                class="w-full px-3 py-2 text-sm font-body text-ink bg-soft-stone/50 border border-border-light rounded-lg outline-none focus:border-coral/50 transition-colors"
+              />
+            </div>
+            <div class="flex-1">
+              <label for="photo-notes" class="text-[11px] font-medium text-muted uppercase tracking-widest font-body block mb-1">Notes</label>
+              <input
+                id="photo-notes"
+                type="text"
+                placeholder="Optional notes..."
+                [value]="uploadNotes()"
+                (input)="uploadNotes.set(asInputValue($event))"
+                class="w-full px-3 py-2 text-sm font-body text-ink bg-soft-stone/50 border border-border-light rounded-lg outline-none focus:border-coral/50 transition-colors"
+              />
+            </div>
+          </div>
+
+          <!-- Upload button -->
+          <button
+            type="button"
+            (click)="upload()"
+            [disabled]="!selectedFile() || photoService.loading()"
+            class="self-start inline-flex items-center gap-2 px-4 py-2.5 bg-coral text-white text-sm font-medium rounded-full font-body hover:bg-coral/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <ng-icon name="heroArrowUpTray" size="16" />
+            @if (photoService.loading()) {
+              Uploading…
+            } @else {
+              Upload photo
+            }
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Gallery view ────────────────────────────────────────────────────── -->
+    @if (activeTab() === 'gallery') {
+      @for (group of photoService.photosByDate(); track group.date) {
+        <section class="bg-canvas rounded-xl border border-border-light overflow-hidden" [attr.aria-label]="'Photos from ' + group.date">
+          <div class="px-4 md:px-6 py-3 border-b border-border-light">
+            <h3 class="font-display text-ink text-base font-medium tracking-tight">{{ group.date }}</h3>
+          </div>
+          <div class="p-3 md:p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 md:gap-3">
+            @for (photo of group.photos; track photo.id) {
+              <button
+                type="button"
+                (click)="openLightbox(photo)"
+                class="relative aspect-[3/4] rounded-xl overflow-hidden group bg-soft-stone border border-border-light hover:border-coral/30 transition-colors"
+                [attr.aria-label]="photo.category + ' photo from ' + photo.date"
+              >
+                <img [src]="photo.photoUrl" [alt]="photo.category + ' progress photo'" class="w-full h-full object-cover" />
+                <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink/70 to-transparent p-2 pt-6">
+                  <span class="text-[10px] font-medium text-white/90 uppercase tracking-wide font-body bg-white/15 px-1.5 py-0.5 rounded-full">{{ photo.category }}</span>
+                  @if (photo.bodyweight) {
+                    <span class="text-[10px] text-white/70 font-body ml-1.5">{{ photo.bodyweight }} lbs</span>
+                  }
+                </div>
+              </button>
+            }
+          </div>
+        </section>
+      } @empty {
+        <div class="flex flex-col items-center justify-center py-12 text-center bg-canvas rounded-xl border border-border-light">
+          <ng-icon name="heroCamera" class="text-hairline mb-3" size="36" />
+          <p class="font-display text-ink text-lg font-medium mb-1">No photos yet</p>
+          <p class="text-muted text-sm font-body">Upload your first progress photo above.</p>
+        </div>
+      }
+    }
+
+    <!-- ── Comparison view ─────────────────────────────────────────────────── -->
+    @if (activeTab() === 'compare') {
+      <section class="bg-canvas rounded-xl border border-border-light p-4 md:p-6" aria-labelledby="compare-heading">
+        <p class="text-[11px] font-medium text-muted uppercase tracking-widest font-body mb-1">Side by side</p>
+        <h2 id="compare-heading" class="font-display text-ink text-xl md:text-2xl font-medium tracking-tight mb-4">Compare progress</h2>
+
+        <div class="flex flex-col sm:flex-row gap-4 mb-4">
+          <!-- Category -->
+          <div>
+            <label for="compare-category" class="text-[11px] font-medium text-muted uppercase tracking-widest font-body block mb-1">Pose</label>
+            <select
+              id="compare-category"
+              [value]="compareCategory()"
+              (change)="compareCategory.set(asSelectValue($event))"
+              class="px-3 py-2 text-sm font-body text-ink bg-soft-stone/50 border border-border-light rounded-lg outline-none focus:border-coral/50 transition-colors"
+            >
+              @for (cat of categories; track cat) {
+                <option [value]="cat">{{ cat }}</option>
+              }
+            </select>
+          </div>
+          <!-- Date A -->
+          <div>
+            <label for="compare-date-a" class="text-[11px] font-medium text-muted uppercase tracking-widest font-body block mb-1">Before</label>
+            <select
+              id="compare-date-a"
+              [value]="compareDateA()"
+              (change)="compareDateA.set(asSelectValue($event))"
+              class="px-3 py-2 text-sm font-body text-ink bg-soft-stone/50 border border-border-light rounded-lg outline-none focus:border-coral/50 transition-colors"
+            >
+              <option value="">Select date</option>
+              @for (d of photoService.uniqueDates(); track d) {
+                <option [value]="d">{{ d }}</option>
+              }
+            </select>
+          </div>
+          <!-- Date B -->
+          <div>
+            <label for="compare-date-b" class="text-[11px] font-medium text-muted uppercase tracking-widest font-body block mb-1">After</label>
+            <select
+              id="compare-date-b"
+              [value]="compareDateB()"
+              (change)="compareDateB.set(asSelectValue($event))"
+              class="px-3 py-2 text-sm font-body text-ink bg-soft-stone/50 border border-border-light rounded-lg outline-none focus:border-coral/50 transition-colors"
+            >
+              <option value="">Select date</option>
+              @for (d of photoService.uniqueDates(); track d) {
+                <option [value]="d">{{ d }}</option>
+              }
+            </select>
+          </div>
+        </div>
+
+        <!-- Comparison display -->
+        @if (comparePhotoA() && comparePhotoB()) {
+          <div class="grid grid-cols-2 gap-3">
+            @if (comparePhotoA(); as photoA) {
+              <div class="flex flex-col gap-2">
+                <div class="aspect-[3/4] rounded-xl overflow-hidden bg-soft-stone border border-border-light">
+                  <img [src]="photoA.photoUrl" [alt]="'Before - ' + photoA.date" class="w-full h-full object-cover" />
+                </div>
+                <div class="text-center">
+                  <p class="text-sm font-medium text-ink font-body">{{ photoA.date }}</p>
+                  @if (photoA.bodyweight) {
+                    <p class="text-xs text-muted font-body">{{ photoA.bodyweight }} lbs</p>
+                  }
+                </div>
+              </div>
+            }
+            @if (comparePhotoB(); as photoB) {
+              <div class="flex flex-col gap-2">
+                <div class="aspect-[3/4] rounded-xl overflow-hidden bg-soft-stone border border-border-light">
+                  <img [src]="photoB.photoUrl" [alt]="'After - ' + photoB.date" class="w-full h-full object-cover" />
+                </div>
+                <div class="text-center">
+                  <p class="text-sm font-medium text-ink font-body">{{ photoB.date }}</p>
+                  @if (photoB.bodyweight) {
+                    <p class="text-xs text-muted font-body">{{ photoB.bodyweight }} lbs</p>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+          @if (comparePhotoA()!.bodyweight && comparePhotoB()!.bodyweight) {
+            @let diff = comparePhotoB()!.bodyweight! - comparePhotoA()!.bodyweight!;
+            <div class="mt-3 text-center">
+              <span [class]="diff < 0
+                ? 'text-sm font-medium font-body text-deep-green'
+                : diff > 0
+                  ? 'text-sm font-medium font-body text-coral'
+                  : 'text-sm font-medium font-body text-muted'">
+                {{ diff > 0 ? '+' : '' }}{{ diff }} lbs
+              </span>
+            </div>
+          }
+        } @else {
+          <div class="flex flex-col items-center justify-center py-10 text-center">
+            <ng-icon name="heroArrowsRightLeft" class="text-hairline mb-3" size="32" />
+            <p class="text-muted text-sm font-body">Select a pose and two dates above to compare.</p>
+          </div>
+        }
+      </section>
+    }
+
+  </div><!-- /layout -->
+  </div><!-- /scroll container -->
+
+  <!-- ── Lightbox modal ──────────────────────────────────────────────────── -->
+  @if (lightboxPhoto()) {
+    <div
+      class="fixed inset-0 z-50 flex items-center justify-center bg-ink/80 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Photo detail"
+      (click)="closeLightbox()"
+      (keydown.escape)="closeLightbox()"
+    >
+      <div class="relative max-w-2xl w-full mx-4" (click)="$event.stopPropagation()">
+        @if (lightboxPhoto(); as photo) {
+          <img [src]="photo.photoUrl" [alt]="photo.category + ' progress photo'" class="w-full rounded-2xl shadow-2xl" />
+          <div class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-ink/80 to-transparent rounded-b-2xl p-4 pt-10">
+            <div class="flex items-end justify-between">
+              <div>
+                <span class="text-xs font-medium text-white/80 uppercase tracking-wide font-body bg-white/15 px-2 py-1 rounded-full">{{ photo.category }}</span>
+                <p class="text-white text-sm font-body mt-2">{{ photo.date }}</p>
+                @if (photo.bodyweight) {
+                  <p class="text-white/70 text-xs font-body">{{ photo.bodyweight }} lbs</p>
+                }
+                @if (photo.notes) {
+                  <p class="text-white/60 text-xs font-body mt-1">{{ photo.notes }}</p>
+                }
+              </div>
+              <button
+                type="button"
+                (click)="deletePhoto(photo.id)"
+                class="px-3 py-1.5 text-xs font-medium font-body rounded-full border border-white/20 text-white/70 hover:border-error hover:text-error transition-colors"
+              >Delete</button>
+            </div>
+          </div>
+          <button
+            type="button"
+            (click)="closeLightbox()"
+            class="absolute top-3 right-3 w-8 h-8 rounded-full bg-ink/50 text-white flex items-center justify-center hover:bg-ink/70 transition-colors"
+            aria-label="Close photo"
+          >
+            <ng-icon name="heroXMark" size="18" />
+          </button>
+        }
+      </div>
+    </div>
+  }
+
+</div>

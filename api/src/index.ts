@@ -1,4 +1,5 @@
 import { serve } from '@hono/node-server';
+import { serveStatic } from '@hono/node-server/serve-static';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
@@ -11,6 +12,7 @@ import calendarRoutes from './routes/calendar.js';
 import exerciseRoutes from './routes/exercises.js';
 import workoutRoutes from './routes/workouts.js';
 import nutritionRoutes from './routes/nutrition.js';
+import photoRoutes from './routes/photos.js';
 import { seedExercises } from './data/exercises.js';
 import { authMiddleware } from './middleware/auth.js';
 import type { AuthEnv } from './middleware/auth.js';
@@ -34,6 +36,9 @@ app.route('/api/exercises', exerciseRoutes);
 app.route('/calendar', calendarRoutes);
 app.route('/api/workouts', workoutRoutes);
 app.route('/api/nutrition', nutritionRoutes);
+app.route('/api/photos', photoRoutes);
+
+app.use('/uploads/*', serveStatic({ root: './' }));
 
 app.get('/api/health', (c) => c.json({ ok: true }));
 

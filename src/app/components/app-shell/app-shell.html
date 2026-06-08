@@ -24,6 +24,10 @@
         class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-muted text-sm hover:bg-white/5 hover:text-white transition-colors font-body">
         <ng-icon name="heroBolt" size="16" aria-hidden="true" />Workouts
       </a>
+      <a routerLink="/photos" routerLinkActive="bg-white/8 text-white"
+        class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-muted text-sm hover:bg-white/5 hover:text-white transition-colors font-body">
+        <ng-icon name="heroCamera" size="16" aria-hidden="true" />Photos
+      </a>
     </nav>
     <div class="px-3 pb-4 border-t border-white/5 shrink-0 pt-3">
       <a routerLink="/settings" routerLinkActive="bg-white/8 text-white"
@@ -99,6 +103,11 @@
             (click)="showMobileMenu.set(false)"
             class="flex items-center gap-3 px-4 py-3.5 rounded-xl text-muted text-base hover:bg-white/5 hover:text-white transition-colors font-body">
             <ng-icon name="heroBolt" size="20" aria-hidden="true" />Workouts
+          </a>
+          <a routerLink="/photos" routerLinkActive="bg-white/10 text-white"
+            (click)="showMobileMenu.set(false)"
+            class="flex items-center gap-3 px-4 py-3.5 rounded-xl text-muted text-base hover:bg-white/5 hover:text-white transition-colors font-body">
+            <ng-icon name="heroCamera" size="20" aria-hidden="true" />Photos
           </a>
         </nav>
 

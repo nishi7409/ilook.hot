@@ -36,6 +36,13 @@
       "when": 1748908800000,
       "tag": "0004_nutrition",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1749600000000,
+      "tag": "0005_progress_photos",
+      "breakpoints": true
     }
   ]
 }
