@@ -13,6 +13,8 @@ import exerciseRoutes from './routes/exercises.js';
 import workoutRoutes from './routes/workouts.js';
 import nutritionRoutes from './routes/nutrition.js';
 import photoRoutes from './routes/photos.js';
+import waterRoutes from './routes/water.js';
+import statsRoutes from './routes/stats.js';
 import { seedExercises } from './data/exercises.js';
 import { authMiddleware } from './middleware/auth.js';
 import type { AuthEnv } from './middleware/auth.js';
@@ -42,6 +44,7 @@ app.route('/calendar', calendarRoutes);
 app.route('/api/workouts', workoutRoutes);
 app.route('/api/nutrition', nutritionRoutes);
 app.route('/api/photos', photoRoutes);
+app.route('/api/stats', statsRoutes);
 
 app.use('/uploads/*', serveStatic({ root: './' }));
 
