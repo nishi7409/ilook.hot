@@ -3,6 +3,10 @@ import { authGuard } from './guards/auth.guard';
 
 export const routes: Routes = [
   {
+    path: 'u/:slug',
+    loadComponent: () => import('./pages/public-profile/public-profile').then((m) => m.PublicProfile),
+  },
+  {
     path: '',
     loadComponent: () => import('./pages/landing/landing').then((m) => m.Landing),
     pathMatch: 'full',
