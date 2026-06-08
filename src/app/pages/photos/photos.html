@@ -219,7 +219,7 @@
 
         <!-- Comparison display -->
         @if (comparePhotoA() && comparePhotoB()) {
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             @if (comparePhotoA(); as photoA) {
               <div class="flex flex-col gap-2">
                 <div class="aspect-[3/4] rounded-xl overflow-hidden bg-soft-stone border border-border-light">
@@ -281,7 +281,7 @@
       (click)="closeLightbox()"
       (keydown.escape)="closeLightbox()"
     >
-      <div class="relative max-w-2xl w-full mx-4" (click)="$event.stopPropagation()">
+      <div class="relative max-w-2xl w-full mx-0 sm:mx-4" (click)="$event.stopPropagation()">
         @if (lightboxPhoto(); as photo) {
           <img [src]="photo.photoUrl" [alt]="photo.category + ' progress photo'" class="w-full rounded-2xl shadow-2xl" />
           <div class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-ink/80 to-transparent rounded-b-2xl p-4 pt-10">
