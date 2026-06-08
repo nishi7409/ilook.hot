@@ -397,5 +397,137 @@
       }
     </section>
 
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <!-- ANALYTICS SECTION                                                 -->
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    @if (analytics(); as data) {
+      <div class="mt-2">
+        <div class="flex items-center gap-2 mb-5">
+          <ng-icon name="heroChartBar" class="text-coral" size="20" aria-hidden="true" />
+          <h2 class="font-display text-ink text-xl font-medium tracking-tight">Analytics</h2>
+        </div>
+
+        <!-- Streak + Consistency cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
+          <div class="bg-canvas rounded-2xl border border-border-light p-5">
+            <p class="text-[11px] font-medium text-muted uppercase tracking-widest font-body mb-1">Current streak</p>
+            <p class="font-display text-ink text-3xl font-medium">{{ data.consistency.currentStreak }}<span class="text-muted text-lg font-body font-normal ml-1">days</span></p>
+          </div>
+          <div class="bg-canvas rounded-2xl border border-border-light p-5">
+            <p class="text-[11px] font-medium text-muted uppercase tracking-widest font-body mb-1">Longest streak</p>
+            <p class="font-display text-ink text-3xl font-medium">{{ data.consistency.longestStreak }}<span class="text-muted text-lg font-body font-normal ml-1">days</span></p>
+          </div>
+          <div class="bg-canvas rounded-2xl border border-border-light p-5">
+            <p class="text-[11px] font-medium text-muted uppercase tracking-widest font-body mb-1">This week</p>
+            <p class="font-display text-ink text-3xl font-medium">{{ data.consistency.thisWeekSessions }}<span class="text-muted text-lg font-body font-normal">/7</span></p>
+          </div>
+          <div class="bg-canvas rounded-2xl border border-border-light p-5">
+            <p class="text-[11px] font-medium text-muted uppercase tracking-widest font-body mb-1">12-week avg</p>
+            <p class="font-display text-ink text-3xl font-medium">
+              {{ weeklyAvg() | number:'1.1-1' }}
+              <span class="text-muted text-lg font-body font-normal">/wk</span>
+            </p>
+          </div>
+        </div>
+
+        <!-- Training heatmap -->
+        <section class="bg-canvas rounded-2xl border border-border-light p-6 mb-5" aria-labelledby="heatmap-heading">
+          <p class="text-[11px] font-medium text-muted uppercase tracking-widest font-body mb-1">Activity</p>
+          <h3 id="heatmap-heading" class="font-display text-ink text-xl font-medium tracking-tight mb-4">Training heatmap</h3>
+
+          <div class="flex gap-0.5 items-start">
+            <!-- Day labels -->
+            <div class="flex flex-col gap-0.5 shrink-0 mr-1 pt-0">
+              <span class="text-[9px] text-muted font-body h-[11px] leading-[11px]">M</span>
+              <span class="text-[9px] text-muted font-body h-[11px] leading-[11px]">T</span>
+              <span class="text-[9px] text-muted font-body h-[11px] leading-[11px]">W</span>
+              <span class="text-[9px] text-muted font-body h-[11px] leading-[11px]">T</span>
+              <span class="text-[9px] text-muted font-body h-[11px] leading-[11px]">F</span>
+              <span class="text-[9px] text-muted font-body h-[11px] leading-[11px]">S</span>
+              <span class="text-[9px] text-muted font-body h-[11px] leading-[11px]">S</span>
+            </div>
+            <!-- Grid -->
+            <div class="flex gap-0.5 overflow-x-auto flex-1 min-w-0">
+              @for (week of heatmapWeeks(); track $index) {
+                <div class="flex flex-col gap-0.5 shrink-0">
+                  @for (day of week; track $index) {
+                    <div
+                      class="w-[11px] h-[11px] rounded-[2px]"
+                      [style.background]="heatmapColor(day.count)"
+                      [title]="heatmapTitle(day)"
+                      role="img"
+                      [attr.aria-label]="heatmapTitle(day)"
+                    ></div>
+                  }
+                </div>
+              }
+            </div>
+          </div>
+
+          <!-- Legend -->
+          <div class="flex items-center gap-2 mt-3 justify-end">
+            <span class="text-[10px] text-muted font-body">Less</span>
+            <div class="w-[11px] h-[11px] rounded-[2px]" style="background: rgba(255,255,255,0.04)"></div>
+            <div class="w-[11px] h-[11px] rounded-[2px]" style="background: rgba(255,119,89,0.3)"></div>
+            <div class="w-[11px] h-[11px] rounded-[2px]" style="background: rgba(255,119,89,0.55)"></div>
+            <div class="w-[11px] h-[11px] rounded-[2px]" style="background: rgba(255,119,89,0.85)"></div>
+            <span class="text-[10px] text-muted font-body">More</span>
+          </div>
+        </section>
+
+        <!-- Estimated 1RM + Volume chart -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
+
+          <!-- Estimated 1RM table -->
+          <section class="bg-canvas rounded-2xl border border-border-light p-6" aria-labelledby="e1rm-heading">
+            <p class="text-[11px] font-medium text-muted uppercase tracking-widest font-body mb-1">Strength</p>
+            <h3 id="e1rm-heading" class="font-display text-ink text-xl font-medium tracking-tight mb-4">Estimated 1RM</h3>
+
+            @if (data.estimated1RMs.length) {
+              <div class="flex flex-col divide-y divide-border-light">
+                <div class="flex items-center py-2 text-[11px] font-medium text-muted uppercase tracking-widest font-body">
+                  <span class="flex-1">Exercise</span>
+                  <span class="w-20 text-right">Est. 1RM</span>
+                  <span class="w-12 text-right">Trend</span>
+                </div>
+                @for (ex of data.estimated1RMs; track ex.exerciseId) {
+                  <div class="flex items-center py-3">
+                    <div class="flex-1 min-w-0">
+                      <p class="text-ink text-sm font-medium font-body truncate">{{ ex.exerciseName }}</p>
+                      <p class="text-muted text-xs font-body">{{ ex.muscleGroups.join(', ') }}</p>
+                    </div>
+                    <span class="w-20 text-right text-ink text-sm font-medium font-body">{{ ex.estimated1RM | number:'1.0-0' }} {{ ex.weightUnit }}</span>
+                    <span class="w-12 flex justify-end">
+                      @if (ex.trend === 'up') {
+                        <ng-icon name="heroArrowUp" class="text-deep-green" size="14" aria-label="Trending up" />
+                      } @else if (ex.trend === 'down') {
+                        <ng-icon name="heroArrowDown" class="text-red-400" size="14" aria-label="Trending down" />
+                      } @else {
+                        <ng-icon name="heroMinus" class="text-muted" size="14" aria-label="No change" />
+                      }
+                    </span>
+                  </div>
+                }
+              </div>
+            } @else {
+              <p class="text-muted text-sm font-body text-center py-8">Log some workouts to see estimated 1RM data.</p>
+            }
+          </section>
+
+          <!-- Volume by muscle group chart -->
+          <section class="bg-canvas rounded-2xl border border-border-light p-6" aria-labelledby="volume-heading">
+            <p class="text-[11px] font-medium text-muted uppercase tracking-widest font-body mb-1">Volume</p>
+            <h3 id="volume-heading" class="font-display text-ink text-xl font-medium tracking-tight mb-4">By muscle group</h3>
+
+            @if (data.volumeData.muscleGroups.length) {
+              <div echarts [options]="volumeChartOption()" class="h-56 w-full" aria-label="Volume by muscle group stacked bar chart"></div>
+            } @else {
+              <p class="text-muted text-sm font-body text-center py-8">No volume data yet. Complete workouts to track volume.</p>
+            }
+          </section>
+        </div>
+      </div>
+    }
+
   </div>
 </main>

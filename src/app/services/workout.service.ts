@@ -293,4 +293,49 @@ export class WorkoutService {
     const m = Math.floor(seconds / 60);
     return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`;
   }
+
+  // Analytics data
+  private readonly _analytics = signal<AnalyticsData | null>(null);
+  readonly analytics = this._analytics.asReadonly();
+
+  loadAnalytics(): void {
+    if (!isPlatformBrowser(this.platformId)) return;
+    this.http.get<AnalyticsData>('/api/workouts/analytics').subscribe({
+      next: (data) => this._analytics.set(data),
+      error: (err) => console.error('Failed to load analytics', err),
+    });
+  }
+}
+
+export interface Estimated1RM {
+  exerciseId: string;
+  exerciseName: string;
+  muscleGroups: string[];
+  estimated1RM: number;
+  trend: 'up' | 'down' | 'same';
+  weightUnit: string;
+}
+
+export interface VolumeData {
+  weeks: string[];
+  muscleGroups: { name: string; data: number[] }[];
+}
+
+export interface HeatmapDay {
+  date: string;
+  count: number;
+}
+
+export interface ConsistencyData {
+  weeklySessionCounts: { week: string; count: number }[];
+  currentStreak: number;
+  longestStreak: number;
+  thisWeekSessions: number;
+}
+
+export interface AnalyticsData {
+  estimated1RMs: Estimated1RM[];
+  volumeData: VolumeData;
+  heatmapData: HeatmapDay[];
+  consistency: ConsistencyData;
 }
