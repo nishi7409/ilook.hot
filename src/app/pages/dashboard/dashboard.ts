@@ -1,5 +1,5 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { DecimalPipe } from '@angular/common';
+import { ChangeDetectionStrategy, Component, computed, inject, signal, OnInit, PLATFORM_ID } from '@angular/core';
+import { isPlatformBrowser, DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { NgIconComponent, provideIcons } from '@ng-icons/core';
 import {
@@ -10,6 +10,10 @@ import {
   heroPlayCircle,
   heroTrophy,
   heroXMark,
+  heroChartBar,
+  heroArrowUp,
+  heroArrowDown,
+  heroMinus,
 } from '@ng-icons/heroicons/outline';
 import { NgxEchartsDirective } from 'ngx-echarts';
 import type { EChartsOption } from 'echarts';
@@ -17,22 +21,24 @@ import { addDays, format } from 'date-fns';
 import { NutritionService } from '../../services/nutrition.service';
 import { ProgramService } from '../../services/program.service';
 import { WorkoutService } from '../../services/workout.service';
+import type { HeatmapDay } from '../../services/workout.service';
 import { WaterService } from '../../services/water.service';
 import { RouterLink } from '@angular/router';
 
 @Component({
   selector: 'app-dashboard',
   imports: [NgxEchartsDirective, NgIconComponent, RouterLink, DecimalPipe, FormsModule],
-  providers: [provideIcons({ heroCheckCircle, heroFire, heroArrowTrendingUp, heroPlayCircle, heroBolt, heroTrophy, heroXMark })],
+  providers: [provideIcons({ heroCheckCircle, heroFire, heroArrowTrendingUp, heroPlayCircle, heroBolt, heroTrophy, heroXMark, heroChartBar, heroArrowUp, heroArrowDown, heroMinus })],
   templateUrl: './dashboard.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-1 flex-col overflow-hidden min-w-0' },
 })
-export class Dashboard {
+export class Dashboard implements OnInit {
   protected readonly programService = inject(ProgramService);
   protected readonly nutritionService = inject(NutritionService);
   protected readonly workoutService = inject(WorkoutService);
   protected readonly waterService = inject(WaterService);
+  private readonly platformId = inject(PLATFORM_ID);
 
   protected readonly customWaterAmount = signal(0);
   protected readonly showCustomWater = signal(false);
@@ -173,7 +179,7 @@ export class Dashboard {
       }],
       tooltip: {
         trigger: 'axis',
-        formatter: (p: any) => { const d = Array.isArray(p) ? p[0] : p; return d?.value ? `${d.name}: <strong>${Number(d.value).toLocaleString()} kcal</strong>` : ''; },
+        formatter: (p: unknown) => { const d = Array.isArray(p) ? p[0] : p; const r = d as Record<string, unknown>; return r?.['value'] ? `${r['name']}: <strong>${Number(r['value']).toLocaleString()} kcal</strong>` : ''; },
         backgroundColor: '#17171c', borderColor: 'transparent',
         textStyle: { color: '#fff', fontSize: 12, fontFamily: 'Inter, sans-serif' },
       },
@@ -204,7 +210,7 @@ export class Dashboard {
       }],
       tooltip: {
         trigger: 'axis',
-        formatter: (p: any) => { const d = Array.isArray(p) ? p[0] : p; return `${d.name}: <strong>${d.value} lbs</strong>`; },
+        formatter: (p: unknown) => { const d = Array.isArray(p) ? p[0] : p; const r = d as Record<string, unknown>; return `${r['name']}: <strong>${r['value']} lbs</strong>`; },
         backgroundColor: '#17171c', borderColor: 'transparent',
         textStyle: { color: '#fff', fontSize: 12, fontFamily: 'Inter, sans-serif' },
       },
@@ -216,6 +222,113 @@ export class Dashboard {
     const m = Math.floor(seconds / 60);
     return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`;
   }
+
+  // ── Analytics ──────────────────────────────────────────────────────
+
+  ngOnInit(): void {
+    if (isPlatformBrowser(this.platformId)) {
+      this.workoutService.loadAnalytics();
+    }
+  }
+
+  protected readonly analytics = this.workoutService.analytics;
+
+  protected readonly weeklyAvg = computed(() => {
+    const data = this.analytics();
+    if (!data?.consistency?.weeklySessionCounts?.length) return 0;
+    const total = data.consistency.weeklySessionCounts.reduce((sum, w) => sum + w.count, 0);
+    return total / data.consistency.weeklySessionCounts.length;
+  });
+
+  protected readonly volumeChartOption = computed<EChartsOption>(() => {
+    const data = this.analytics();
+    if (!data?.volumeData?.muscleGroups?.length) return {};
+
+    const colors = ['#ff7759', '#4fc3f7', '#81c784', '#ffb74d', '#ba68c8', '#e57373', '#64b5f6', '#aed581', '#ffd54f', '#f06292'];
+
+    return {
+      grid: { top: 40, right: 12, bottom: 28, left: 52 },
+      legend: {
+        top: 0,
+        textStyle: { color: '#93939f', fontSize: 11, fontFamily: 'Inter, sans-serif' },
+        itemWidth: 12, itemHeight: 8,
+      },
+      xAxis: {
+        type: 'category',
+        data: data.volumeData.weeks,
+        axisLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: { fontSize: 11, color: '#93939f', fontFamily: 'Inter, sans-serif' },
+      },
+      yAxis: {
+        type: 'value',
+        axisLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: { fontSize: 11, color: '#93939f', fontFamily: 'Inter, sans-serif', formatter: (v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v) },
+        splitLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } },
+      },
+      series: data.volumeData.muscleGroups.map((mg, i) => ({
+        name: mg.name,
+        type: 'bar' as const,
+        stack: 'volume',
+        data: mg.data,
+        barMaxWidth: 28,
+        itemStyle: { color: colors[i % colors.length], borderRadius: i === data.volumeData.muscleGroups.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0] },
+      })),
+      tooltip: {
+        trigger: 'axis',
+        backgroundColor: '#17171c',
+        borderColor: 'transparent',
+        textStyle: { color: '#fff', fontSize: 12, fontFamily: 'Inter, sans-serif' },
+      },
+    };
+  });
+
+  protected readonly heatmapWeeks = computed(() => {
+    const data = this.analytics();
+    if (!data?.heatmapData?.length) return [];
+
+    const days = data.heatmapData;
+    const weeks: HeatmapDay[][] = [];
+    let currentWeek: HeatmapDay[] = [];
+
+    // Pad first week to start on Monday
+    const firstDate = new Date(days[0].date + 'T00:00:00');
+    const firstDow = (firstDate.getDay() + 6) % 7; // 0=Mon
+    for (let i = 0; i < firstDow; i++) {
+      currentWeek.push({ date: '', count: -1 });
+    }
+
+    for (const day of days) {
+      currentWeek.push(day);
+      if (currentWeek.length === 7) {
+        weeks.push(currentWeek);
+        currentWeek = [];
+      }
+    }
+    if (currentWeek.length > 0) {
+      while (currentWeek.length < 7) {
+        currentWeek.push({ date: '', count: -1 });
+      }
+      weeks.push(currentWeek);
+    }
+    return weeks;
+  });
+
+  protected heatmapColor(count: number): string {
+    if (count < 0) return 'transparent';
+    if (count === 0) return 'rgba(255,255,255,0.04)';
+    if (count === 1) return 'rgba(255,119,89,0.3)';
+    if (count === 2) return 'rgba(255,119,89,0.55)';
+    return 'rgba(255,119,89,0.85)';
+  }
+
+  protected heatmapTitle(day: HeatmapDay): string {
+    if (day.count < 0) return '';
+    return `${day.date}: ${day.count} session${day.count === 1 ? '' : 's'}`;
+  }
+
+  // ── Water ──────────────────────────────────────────────────────────
 
   protected addWater(amount: number): void {
     if (amount > 0) {

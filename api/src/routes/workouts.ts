@@ -447,4 +447,155 @@ router.post('/:sessionId/exercises/:sessionExerciseId/sets', async (c) => {
   return c.json({ ...formatSet(newSet), isPersonalRecord }, 201);
 });
 
+// GET /analytics — comprehensive dashboard analytics
+router.get('/analytics', async (c) => {
+  const authError = requireAuth(c);
+  if (authError) return authError;
+
+  const user = c.get('user')!;
+  const now = new Date();
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+
+  const today = fmt(now);
+  const twelveWeeksAgo = new Date(now);
+  twelveWeeksAgo.setDate(twelveWeeksAgo.getDate() - 84);
+  const oneYearAgo = new Date(now);
+  oneYearAgo.setDate(oneYearAgo.getDate() - 365);
+  const oneMonthAgo = new Date(now);
+  oneMonthAgo.setDate(oneMonthAgo.getDate() - 30);
+
+  const allSessions = await db
+    .select()
+    .from(workoutSessions)
+    .where(and(eq(workoutSessions.userId, user.id), eq(workoutSessions.completed, true)))
+    .orderBy(desc(workoutSessions.date));
+
+  const recentSessionIds = allSessions.filter((s) => s.date >= fmt(twelveWeeksAgo)).map((s) => s.id);
+
+  const allExercises: (typeof workoutSessionExercises.$inferSelect)[] = [];
+  const allSetsByExId = new Map<string, (typeof workoutSets.$inferSelect)[]>();
+
+  for (const sessionId of recentSessionIds) {
+    const exRows = await db.select().from(workoutSessionExercises).where(eq(workoutSessionExercises.sessionId, sessionId));
+    for (const ex of exRows) {
+      allExercises.push(ex);
+      const sets = await db.select().from(workoutSets).where(eq(workoutSets.sessionExerciseId, ex.id));
+      allSetsByExId.set(ex.id, sets);
+    }
+  }
+
+  const sessionDateMap = new Map(allSessions.map((s) => [s.id, s.date]));
+
+  // a) Estimated 1RM (Epley formula)
+  const exerciseMap = new Map<string, { exerciseId: string; exerciseName: string; muscleGroups: string[]; current1RM: number; prev1RM: number; weightUnit: string }>();
+
+  for (const ex of allExercises) {
+    const sets = allSetsByExId.get(ex.id) ?? [];
+    const sessionDate = sessionDateMap.get(ex.sessionId) ?? '';
+    for (const s of sets) {
+      if (!s.completed) continue;
+      const weight = parseFloat(s.weight);
+      const reps = s.reps;
+      if (weight <= 0 || reps <= 0) continue;
+      const e1rm = reps === 1 ? weight : weight * (1 + reps / 30);
+      const existing = exerciseMap.get(ex.exerciseId);
+      const isRecent = sessionDate >= fmt(oneMonthAgo);
+      if (!existing) {
+        exerciseMap.set(ex.exerciseId, { exerciseId: ex.exerciseId, exerciseName: ex.exerciseName, muscleGroups: ex.muscleGroups, current1RM: isRecent ? e1rm : 0, prev1RM: !isRecent ? e1rm : 0, weightUnit: s.weightUnit });
+      } else {
+        if (isRecent && e1rm > existing.current1RM) existing.current1RM = e1rm;
+        if (!isRecent && e1rm > existing.prev1RM) existing.prev1RM = e1rm;
+      }
+    }
+  }
+
+  const estimated1RMs = Array.from(exerciseMap.values())
+    .filter((e) => e.current1RM > 0)
+    .map((e) => ({
+      exerciseId: e.exerciseId, exerciseName: e.exerciseName, muscleGroups: e.muscleGroups,
+      estimated1RM: Math.round(e.current1RM * 10) / 10,
+      trend: e.prev1RM > 0 ? (e.current1RM > e.prev1RM * 1.01 ? 'up' : e.current1RM < e.prev1RM * 0.99 ? 'down' : 'same') : 'same',
+      weightUnit: e.weightUnit,
+    }))
+    .sort((a, b) => b.estimated1RM - a.estimated1RM);
+
+  // b) Volume per muscle group (12 weeks, weekly buckets)
+  const weekBuckets: { weekStart: string; weekLabel: string }[] = [];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i * 7);
+    const monday = new Date(d);
+    monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+    weekBuckets.push({ weekStart: fmt(monday), weekLabel: `W${12 - i}` });
+  }
+
+  const volumeByMuscleGroup = new Map<string, number[]>();
+  for (const ex of allExercises) {
+    const sets = allSetsByExId.get(ex.id) ?? [];
+    const sessionDate = sessionDateMap.get(ex.sessionId) ?? '';
+    if (sessionDate < fmt(twelveWeeksAgo)) continue;
+    const weekIdx = weekBuckets.findIndex((wb, i) => {
+      const nextStart = i < weekBuckets.length - 1 ? weekBuckets[i + 1].weekStart : '9999-99-99';
+      return sessionDate >= wb.weekStart && sessionDate < nextStart;
+    });
+    if (weekIdx === -1) continue;
+    for (const mg of ex.muscleGroups) {
+      if (!volumeByMuscleGroup.has(mg)) volumeByMuscleGroup.set(mg, new Array(12).fill(0));
+      const arr = volumeByMuscleGroup.get(mg)!;
+      for (const s of sets) {
+        if (!s.completed) continue;
+        arr[weekIdx] += s.reps * parseFloat(s.weight);
+      }
+    }
+  }
+
+  const volumeData = {
+    weeks: weekBuckets.map((w) => w.weekLabel),
+    muscleGroups: Array.from(volumeByMuscleGroup.entries()).map(([name, data]) => ({ name, data: data.map((v) => Math.round(v)) })),
+  };
+
+  // c) Training frequency heatmap (365 days)
+  const sessionCountByDate = new Map<string, number>();
+  for (const s of allSessions) {
+    if (s.date >= fmt(oneYearAgo)) sessionCountByDate.set(s.date, (sessionCountByDate.get(s.date) ?? 0) + 1);
+  }
+  const heatmapData: { date: string; count: number }[] = [];
+  for (let i = 364; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const key = fmt(d);
+    heatmapData.push({ date: key, count: sessionCountByDate.get(key) ?? 0 });
+  }
+
+  // d) Weekly consistency
+  const weeklySessionCounts: { week: string; count: number }[] = [];
+  for (let wi = 0; wi < weekBuckets.length; wi++) {
+    const wb = weekBuckets[wi];
+    const nextStart = wi < weekBuckets.length - 1 ? weekBuckets[wi + 1].weekStart : '9999-99-99';
+    const cnt = allSessions.filter((s) => s.date >= wb.weekStart && s.date < nextStart).length;
+    weeklySessionCounts.push({ week: wb.weekLabel, count: cnt });
+  }
+
+  let currentStreak = 0;
+  for (let i = 0; i < 365; i++) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    if (sessionCountByDate.has(fmt(d))) { currentStreak++; } else if (i > 0) { break; }
+  }
+
+  let longestStreak = 0;
+  let tempStreak = 0;
+  for (let i = 364; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    if (sessionCountByDate.has(fmt(d))) { tempStreak++; longestStreak = Math.max(longestStreak, tempStreak); } else { tempStreak = 0; }
+  }
+
+  const monday = new Date(now);
+  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+  const thisWeekSessions = allSessions.filter((s) => s.date >= fmt(monday) && s.date <= today).length;
+
+  return c.json({ estimated1RMs, volumeData, heatmapData, consistency: { weeklySessionCounts, currentStreak, longestStreak, thisWeekSessions } });
+});
+
 export default router;
