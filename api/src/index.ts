@@ -15,6 +15,7 @@ import nutritionRoutes from './routes/nutrition.js';
 import photoRoutes from './routes/photos.js';
 import waterRoutes from './routes/water.js';
 import statsRoutes from './routes/stats.js';
+import exportRoutes from './routes/export.js';
 import { seedExercises } from './data/exercises.js';
 import { authMiddleware } from './middleware/auth.js';
 import type { AuthEnv } from './middleware/auth.js';
@@ -46,6 +47,7 @@ app.route('/api/nutrition', nutritionRoutes);
 app.route('/api/photos', photoRoutes);
 app.route('/api/water', waterRoutes);
 app.route('/api/stats', statsRoutes);
+app.route('/api/export', exportRoutes);
 
 app.use('/uploads/*', serveStatic({ root: './' }));
 
