@@ -1,6 +1,7 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal, OnInit, OnDestroy } from '@angular/core';
 import { NgOptimizedImage } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 import { AuthModal } from '../../components/auth-modal/auth-modal';
 
 interface MockCell {
@@ -16,12 +17,20 @@ interface MockCell {
   templateUrl: './landing.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class Landing {
+export class Landing implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly http = inject(HttpClient);
 
   protected readonly authOpen = signal(false);
   protected readonly authMode = signal<'signin' | 'signup'>('signup');
+
+  protected readonly ghStars = signal(0);
+  protected readonly ghForks = signal(0);
+  protected readonly userCount = signal(0);
+  protected readonly statsLoaded = signal(false);
+
+  private animationFrameIds: number[] = [];
 
   constructor() {
     // Open modal automatically when redirected from auth guard
@@ -40,6 +49,45 @@ export class Landing {
   protected closeAuth(): void {
     this.authOpen.set(false);
     this.router.navigate([], { queryParams: {}, replaceUrl: true });
+  }
+
+  ngOnInit(): void {
+    this.http.get<{ stars: number; forks: number; users: number }>('/api/stats').subscribe({
+      next: (data) => {
+        this.statsLoaded.set(true);
+        this.animateCount(this.ghStars, data.stars);
+        this.animateCount(this.ghForks, data.forks);
+        this.animateCount(this.userCount, data.users);
+      },
+      error: () => {
+        // Silently fail — stats are non-critical
+      },
+    });
+  }
+
+  ngOnDestroy(): void {
+    for (const id of this.animationFrameIds) {
+      cancelAnimationFrame(id);
+    }
+  }
+
+  private animateCount(sig: ReturnType<typeof signal<number>>, target: number, durationMs = 1200): void {
+    if (target <= 0) {
+      sig.set(target);
+      return;
+    }
+    const start = performance.now();
+    const step = (now: number) => {
+      const elapsed = now - start;
+      const progress = Math.min(elapsed / durationMs, 1);
+      // ease-out cubic
+      const eased = 1 - Math.pow(1 - progress, 3);
+      sig.set(Math.round(eased * target));
+      if (progress < 1) {
+        this.animationFrameIds.push(requestAnimationFrame(step));
+      }
+    };
+    this.animationFrameIds.push(requestAnimationFrame(step));
   }
 
   protected readonly heroStats = [

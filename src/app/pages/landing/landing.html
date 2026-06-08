@@ -95,6 +95,33 @@
           </div>
         }
       </div>
+
+      <!-- Live GitHub / user stats -->
+      @if (statsLoaded()) {
+        <div class="flex items-center gap-8 mt-6 w-full justify-center md:justify-start" aria-label="Project statistics">
+          <div class="flex items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M8 1.25l2.17 4.4 4.83.7-3.5 3.42.83 4.82L8 12.17l-4.33 2.42.83-4.82L1 6.35l4.83-.7L8 1.25z" fill="#ff7759"/>
+            </svg>
+            <span class="text-white font-display font-medium text-lg tabular-nums">{{ ghStars() }}</span>
+            <span class="text-white/40 text-xs font-body">stars</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M5 5.5A2.5 2.5 0 1 0 5 .5a2.5 2.5 0 0 0 0 5zm6 0A2.5 2.5 0 1 0 11 .5a2.5 2.5 0 0 0 0 5zm-6 1c-1 0-2 .5-2 1.5V10h4V8c0-1-.5-1.5-2-1.5zm3 3v2.5a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1V10c0-1-1-1.5-2-1.5h-2c-1 0-2 .5-2 1.5z" fill="#8b87ff"/>
+            </svg>
+            <span class="text-white font-display font-medium text-lg tabular-nums">{{ ghForks() }}</span>
+            <span class="text-white/40 text-xs font-body">forks</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M8 8a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zm0 1.5c-3.5 0-6.5 1.75-6.5 3.5V14.5h13V13c0-1.75-3-3.5-6.5-3.5z" fill="#34d399"/>
+            </svg>
+            <span class="text-white font-display font-medium text-lg tabular-nums">{{ userCount() }}</span>
+            <span class="text-white/40 text-xs font-body">users</span>
+          </div>
+        </div>
+      }
     </div>
 
     <!-- Right: phone mockup (desktop only) -->

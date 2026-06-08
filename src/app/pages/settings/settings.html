@@ -167,6 +167,50 @@
         </div>
       </section>
 
+      <!-- Water goal card -->
+      <section class="bg-canvas rounded-2xl border border-border-light overflow-hidden" aria-labelledby="water-goal-heading">
+        <div class="px-5 md:px-6 py-4 border-b border-border-light">
+          <p class="text-[11px] font-medium text-muted uppercase tracking-widest font-body mb-0.5">Hydration</p>
+          <h2 id="water-goal-heading" class="font-display text-ink text-lg font-medium">Daily water goal</h2>
+          <p class="text-muted text-xs font-body mt-1">Set your daily water intake target in milliliters.</p>
+        </div>
+
+        <div class="px-5 md:px-6 py-5 flex flex-col gap-5">
+          <div>
+            <label for="goal-water" class="block text-sm font-medium text-ink font-body mb-1.5">
+              Daily water intake
+            </label>
+            <div class="flex items-center gap-3">
+              <input
+                id="goal-water"
+                type="number"
+                [ngModel]="waterGoalDraft()"
+                (ngModelChange)="waterGoalDraft.set(+$event)"
+                min="500" max="10000" step="100"
+                class="flex-1 border border-border-light rounded-xl px-4 py-3 text-sm font-body text-ink bg-canvas outline-none focus:border-ink transition-colors"
+              />
+              <span class="text-sm text-muted font-body shrink-0 w-10">ml</span>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-3 pt-1">
+            <button
+              type="button"
+              (click)="saveWaterGoal()"
+              class="px-6 py-3 bg-primary text-white text-sm font-medium rounded-full font-body hover:bg-ink transition-colors"
+            >
+              Save goal
+            </button>
+            @if (waterSaved()) {
+              <div class="flex items-center gap-1.5 text-deep-green text-sm font-body">
+                <ng-icon name="heroCheckCircle" size="16" aria-hidden="true" />
+                Saved!
+              </div>
+            }
+          </div>
+        </div>
+      </section>
+
       <!-- Data export card -->
       <section class="bg-canvas rounded-2xl border border-border-light overflow-hidden" aria-labelledby="export-heading">
         <div class="px-5 md:px-6 py-4 border-b border-border-light">

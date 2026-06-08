@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, DestroyRef, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NgIconComponent, provideIcons } from '@ng-icons/core';
 import {
@@ -20,7 +20,7 @@ import { format } from 'date-fns';
 import { ProgramService } from '../../services/program.service';
 import { WorkoutService } from '../../services/workout.service';
 import type { SessionExercise, WorkoutSession } from '../../models/workout.model';
-import type { WeightUnit } from '../../models/program.model';
+import type { ProgramExercise, WeightUnit } from '../../models/program.model';
 
 interface SetDraftRow {
   reps: number;
@@ -46,6 +46,7 @@ interface SetDraftRow {
 export class Workouts {
   protected readonly workoutService = inject(WorkoutService);
   protected readonly programService = inject(ProgramService);
+  private readonly destroyRef = inject(DestroyRef);
 
   protected readonly activeSession = this.workoutService.activeSession;
   protected readonly hasActiveSession = this.workoutService.hasActiveSession;
@@ -67,7 +68,32 @@ export class Workouts {
   /** Track which session we've already initialised drafts for */
   private readonly _initedSessionId = signal<string | null>(null);
 
+  // ── Rest timer ─────────────────────────────────────────────────────────────
+  protected readonly restSeconds = signal(90);
+  protected readonly timerActive = signal(false);
+  protected readonly timerRemaining = signal(0);
+  private _timerInterval: ReturnType<typeof setInterval> | null = null;
+
+  /** Map exerciseId → restSeconds from program config (if available) */
+  private readonly _exerciseRestMap = signal<Record<string, number>>({});
+
+  protected readonly timerDisplay = computed(() => {
+    const total = this.timerRemaining();
+    const m = Math.floor(total / 60);
+    const s = total % 60;
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  });
+
+  protected readonly timerProgress = computed(() => {
+    const rest = this.restSeconds();
+    if (rest <= 0) return 0;
+    return (rest - this.timerRemaining()) / rest;
+  });
+
   constructor() {
+    // Clean up timer on destroy
+    this.destroyRef.onDestroy(() => this._clearTimer());
+
     // When an active session appears (start or resume), init set drafts
     effect(() => {
       const session = this.workoutService.activeSession();
@@ -77,6 +103,7 @@ export class Workouts {
       } else if (!session) {
         this._initedSessionId.set(null);
         this.setDrafts.set({});
+        this._clearTimer();
       }
     });
 
@@ -110,6 +137,19 @@ export class Workouts {
 
   private _initDrafts(session: WorkoutSession): void {
     const drafts: Record<string, SetDraftRow[]> = {};
+
+    // Build exercise rest map from today's program exercises
+    const day = this.todayWorkout();
+    if (day && !day.isRest) {
+      const restMap: Record<string, number> = {};
+      for (const pe of day.exercises) {
+        if (pe.restSeconds != null) {
+          restMap[pe.exercise.id] = pe.restSeconds;
+        }
+      }
+      this._exerciseRestMap.set(restMap);
+    }
+
     for (const se of session.exercises) {
       // Already-logged sets from a resumed session
       const loggedSets = se.sets.filter((s) => s.completed);
@@ -149,11 +189,13 @@ export class Workouts {
   }
 
   finishWorkout(): void {
+    this._clearTimer();
     this.workoutService.finishSession();
     this.expandedExerciseId.set(null);
   }
 
   discardWorkout(): void {
+    this._clearTimer();
     this.workoutService.discardSession();
     this.expandedExerciseId.set(null);
   }
@@ -231,10 +273,63 @@ export class Workouts {
       );
       if (next) this.expandedExerciseId.set(next.exercise.id);
     }
+
+    // Start rest timer if there are remaining sets in this or later exercises
+    const hasRemainingSets = session.exercises.some(
+      (e) => (this.setDrafts()[e.id] ?? []).some((r) => !r.done),
+    );
+    if (hasRemainingSets) {
+      // Find exercise id for this sessionExercise to look up rest config
+      const se = session.exercises.find((e) => e.id === seId);
+      const exerciseId = se?.exercise.id;
+      const configuredRest = exerciseId ? this._exerciseRestMap()[exerciseId] : undefined;
+      this.startTimer(configuredRest ?? 90);
+    }
   }
 
   toggleExpand(exerciseId: string): void {
     this.expandedExerciseId.update((id) => (id === exerciseId ? null : exerciseId));
+  }
+
+  // ── Rest timer methods ──────────────────────────────────────────────────────
+
+  startTimer(seconds?: number): void {
+    this._clearTimer();
+    const rest = seconds ?? 90;
+    this.restSeconds.set(rest);
+    this.timerRemaining.set(rest);
+    this.timerActive.set(true);
+
+    this._timerInterval = setInterval(() => {
+      this.timerRemaining.update((v) => {
+        if (v <= 1) {
+          this._onTimerComplete();
+          return 0;
+        }
+        return v - 1;
+      });
+    }, 1000);
+  }
+
+  skipTimer(): void {
+    this._clearTimer();
+  }
+
+  private _clearTimer(): void {
+    if (this._timerInterval !== null) {
+      clearInterval(this._timerInterval);
+      this._timerInterval = null;
+    }
+    this.timerActive.set(false);
+    this.timerRemaining.set(0);
+  }
+
+  private _onTimerComplete(): void {
+    // Vibrate if available
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate([200, 100, 200]);
+    }
+    this._clearTimer();
   }
 
   // ── Derived helpers ────────────────────────────────────────────────────────
@@ -285,7 +380,7 @@ export class Workouts {
       }],
       tooltip: {
         trigger: 'axis',
-        formatter: (p: any) => { const d = Array.isArray(p) ? p[0] : p; return `${d.name}: <strong>${d.value} lbs</strong>`; },
+        formatter: (p: unknown) => { const d = (Array.isArray(p) ? p[0] : p) as Record<string, unknown>; return `${d['name']}: <strong>${d['value']} lbs</strong>`; },
         backgroundColor: '#17171c', borderColor: 'transparent',
         textStyle: { color: '#fff', fontSize: 12, fontFamily: 'Inter, sans-serif' },
       },
