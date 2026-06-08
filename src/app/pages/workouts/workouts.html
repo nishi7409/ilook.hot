@@ -79,9 +79,24 @@
                     </div>
                   }
                   <div class="text-left min-w-0">
-                    <p [class]="isComplete ? 'text-sm font-medium font-body text-deep-green truncate' : 'text-sm font-medium font-body text-ink truncate'">
-                      {{ se.exercise.name }}
-                    </p>
+                    <div class="flex items-center gap-1.5">
+                      <p [class]="isComplete ? 'text-sm font-medium font-body text-deep-green truncate' : 'text-sm font-medium font-body text-ink truncate'">
+                        {{ se.exercise.name }}
+                      </p>
+                      @if (se.exercise.demoUrl) {
+                        <a
+                          [href]="se.exercise.demoUrl"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class="text-muted hover:text-primary transition-colors shrink-0"
+                          [attr.aria-label]="'View demo for ' + se.exercise.name"
+                          title="View exercise demo"
+                          (click)="$event.stopPropagation()"
+                        >
+                          <ng-icon name="heroArrowTopRightOnSquare" size="12" />
+                        </a>
+                      }
+                    </div>
                     <p class="text-[11px] font-body text-muted">
                       {{ done }}/{{ total }} sets
                       @if (done > 0 && done < total) { · <span class="text-coral">in progress</span> }
@@ -265,7 +280,21 @@
                       <ng-icon name="heroBolt" class="text-muted" size="12" />
                     </div>
                     <div>
-                      <span class="text-ink text-sm font-medium font-body">{{ ex.exercise.name }}</span>
+                      <div class="flex items-center gap-1.5">
+                        <span class="text-ink text-sm font-medium font-body">{{ ex.exercise.name }}</span>
+                        @if (ex.exercise.demoUrl) {
+                          <a
+                            [href]="ex.exercise.demoUrl"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="text-muted hover:text-primary transition-colors shrink-0"
+                            [attr.aria-label]="'View demo for ' + ex.exercise.name"
+                            title="View exercise demo"
+                          >
+                            <ng-icon name="heroArrowTopRightOnSquare" size="12" />
+                          </a>
+                        }
+                      </div>
                       <p class="text-muted text-[11px] font-body">{{ ex.exercise.muscleGroups[0] }}</p>
                     </div>
                   </div>

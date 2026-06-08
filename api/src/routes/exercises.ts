@@ -20,6 +20,7 @@ router.get('/', async (c) => {
       category: e.category,
       group: e.group,
       topRated: e.topRated,
+      demoUrl: e.demoUrl ?? null,
     })),
   );
 });

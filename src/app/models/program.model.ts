@@ -7,6 +7,7 @@ export interface Exercise {
   category: 'compound' | 'isolation' | 'cardio' | 'bodyweight';
   group: string;
   topRated?: boolean;
+  demoUrl?: string | null;
 }
 
 export interface ProgramExercise {
