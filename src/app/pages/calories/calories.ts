@@ -1,6 +1,6 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal, NgZone } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal, NgZone, PLATFORM_ID } from '@angular/core';
 import { BrowserMultiFormatReader } from '@zxing/browser';
-import { DecimalPipe } from '@angular/common';
+import { DecimalPipe, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { NgIconComponent, provideIcons } from '@ng-icons/core';
@@ -8,6 +8,7 @@ import {
   heroAdjustmentsHorizontal,
   heroCheckCircle,
   heroChevronLeft,
+  heroChartBar,
   heroFire,
   heroMagnifyingGlass,
   heroPencilSquare,
@@ -32,7 +33,7 @@ declare class BarcodeDetector {
 @Component({
   selector: 'app-calories',
   imports: [NgIconComponent, NgxEchartsDirective, FormsModule, DecimalPipe, RouterLink],
-  providers: [provideIcons({ heroFire, heroMagnifyingGlass, heroPlus, heroTrash, heroXMark, heroCheckCircle, heroAdjustmentsHorizontal, heroQrCode, heroChevronLeft, heroPencilSquare })],
+  providers: [provideIcons({ heroFire, heroMagnifyingGlass, heroPlus, heroTrash, heroXMark, heroCheckCircle, heroAdjustmentsHorizontal, heroQrCode, heroChevronLeft, heroPencilSquare, heroChartBar })],
   templateUrl: './calories.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-1 flex-col overflow-hidden min-w-0' },
@@ -428,6 +429,130 @@ export class Calories {
       // Stay in scan mode so the error is visible
     } finally {
       this.scanLoading.set(false);
+    }
+  }
+
+  // ── Nutrition History Charts ────────────────────────────────────
+  protected readonly historyPeriod = signal(30);
+  protected readonly historyPeriods = [
+    { days: 7, label: '7d' },
+    { days: 30, label: '30d' },
+    { days: 90, label: '90d' },
+  ];
+
+  protected readonly historyData = this.nutritionService.history;
+  protected readonly historyLoading = this.nutritionService.historyLoading;
+
+  protected readonly historyAverages = computed(() => {
+    const data = this.historyData();
+    const logged = data.filter((d) => d.calories > 0);
+    if (logged.length === 0) return { calories: 0, protein: 0, carbs: 0, fat: 0, daysLogged: 0 };
+    const sum = logged.reduce(
+      (a, d) => ({ calories: a.calories + d.calories, protein: a.protein + d.protein, carbs: a.carbs + d.carbs, fat: a.fat + d.fat }),
+      { calories: 0, protein: 0, carbs: 0, fat: 0 },
+    );
+    return {
+      calories: Math.round(sum.calories / logged.length),
+      protein: Math.round(sum.protein / logged.length),
+      carbs: Math.round(sum.carbs / logged.length),
+      fat: Math.round(sum.fat / logged.length),
+      daysLogged: logged.length,
+    };
+  });
+
+  protected readonly proteinStreak = computed(() => {
+    const data = this.historyData();
+    const goal = this.goals().protein;
+    let streak = 0;
+    for (let i = data.length - 1; i >= 0; i--) {
+      if (data[i].protein >= goal) streak++;
+      else break;
+    }
+    return streak;
+  });
+
+  protected readonly calorieTrendOption = computed<EChartsOption>(() => {
+    const data = this.historyData();
+    const goal = this.goals().calories;
+    return {
+      grid: { top: 24, right: 16, bottom: 24, left: 48 },
+      xAxis: {
+        type: 'category',
+        data: data.map((d) => d.date.slice(5)),
+        axisLine: { show: false }, axisTick: { show: false },
+        axisLabel: { fontSize: 10, color: '#93939f', fontFamily: 'Inter, sans-serif', interval: Math.max(0, Math.floor(data.length / 8) - 1) },
+      },
+      yAxis: {
+        type: 'value',
+        axisLabel: { fontSize: 10, color: '#93939f', fontFamily: 'Inter, sans-serif' },
+        splitLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } },
+      },
+      series: [{
+        type: 'line', smooth: true, symbol: 'none',
+        data: data.map((d) => d.calories || null),
+        lineStyle: { color: '#ff7759', width: 2 },
+        areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(255,119,89,0.25)' }, { offset: 1, color: 'rgba(255,119,89,0)' }] } },
+        markLine: {
+          silent: true, symbol: 'none',
+          data: [{ yAxis: goal }],
+          lineStyle: { color: '#d9d9dd', type: 'dashed', width: 1 },
+          label: { formatter: `${goal.toLocaleString()} kcal`, position: 'end', color: '#93939f', fontSize: 10 },
+        },
+      }],
+      tooltip: {
+        trigger: 'axis',
+        formatter: (p: unknown) => { const d = Array.isArray(p) ? p[0] : p; const r = d as Record<string, unknown>; return r?.['value'] ? `${r['name']}: <strong>${Number(r['value']).toLocaleString()} kcal</strong>` : ''; },
+        backgroundColor: '#17171c', borderColor: 'transparent',
+        textStyle: { color: '#fff', fontSize: 12, fontFamily: 'Inter, sans-serif' },
+      },
+    };
+  });
+
+  protected readonly macroTrendOption = computed<EChartsOption>(() => {
+    const data = this.historyData();
+    const makeSeries = (key: 'protein' | 'carbs' | 'fat', color: string, label: string) => ({
+      name: label, type: 'line' as const, smooth: true, symbol: 'none', stack: 'macros',
+      data: data.map((d) => d[key] || null),
+      lineStyle: { width: 0 },
+      areaStyle: { color },
+    });
+    return {
+      grid: { top: 32, right: 16, bottom: 24, left: 48 },
+      legend: { top: 0, textStyle: { color: '#93939f', fontSize: 11, fontFamily: 'Inter, sans-serif' } },
+      xAxis: {
+        type: 'category',
+        data: data.map((d) => d.date.slice(5)),
+        axisLine: { show: false }, axisTick: { show: false },
+        axisLabel: { fontSize: 10, color: '#93939f', fontFamily: 'Inter, sans-serif', interval: Math.max(0, Math.floor(data.length / 8) - 1) },
+      },
+      yAxis: {
+        type: 'value',
+        axisLabel: { fontSize: 10, color: '#93939f', fontFamily: 'Inter, sans-serif', formatter: '{value}g' },
+        splitLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } },
+      },
+      series: [
+        makeSeries('protein', 'rgba(255,119,89,0.5)', 'Protein'),
+        makeSeries('carbs', 'rgba(251,191,36,0.4)', 'Carbs'),
+        makeSeries('fat', 'rgba(96,165,250,0.4)', 'Fat'),
+      ],
+      tooltip: {
+        trigger: 'axis',
+        backgroundColor: '#17171c', borderColor: 'transparent',
+        textStyle: { color: '#fff', fontSize: 12, fontFamily: 'Inter, sans-serif' },
+      },
+    };
+  });
+
+  selectHistoryPeriod(days: number): void {
+    this.historyPeriod.set(days);
+    this.nutritionService.loadHistory(days);
+  }
+
+  constructor() {
+    // Load 30-day history by default (only in browser)
+    const platformId = inject(PLATFORM_ID);
+    if (isPlatformBrowser(platformId)) {
+      this.nutritionService.loadHistory(30);
     }
   }
 }
