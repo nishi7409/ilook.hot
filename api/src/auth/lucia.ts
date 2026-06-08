@@ -7,6 +7,7 @@ const adapter = new DrizzlePostgreSQLAdapter(db, sessions, users);
 
 export const lucia = new Lucia(adapter, {
   sessionCookie: {
+    expires: true,
     attributes: {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
