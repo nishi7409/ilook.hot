@@ -82,7 +82,7 @@ export class Settings {
     const rows: string[][] = [['Date', 'Session', 'Exercise', 'Set #', 'Reps', 'Weight (lbs)', 'Is PR', 'Duration (min)']];
     for (const session of sessions) {
       for (const ex of session.exercises) {
-        ex.sets.forEach((set, i) => {
+        ex.sets.forEach((set: { reps: number; weight?: number; isPersonalRecord?: boolean }, i: number) => {
           rows.push([
             session.date,
             session.name,
