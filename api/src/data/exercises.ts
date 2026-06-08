@@ -453,14 +453,25 @@ export async function seedExercises(database: DB): Promise<void> {
     ALTER TABLE exercises ADD COLUMN IF NOT EXISTS demo_url text
   `);
 
-  // Only insert if table is empty
-  const existing = await database.select({ id: exercises.id }).from(exercises).limit(1);
-  if (existing.length > 0) return;
-
-  console.log(`Seeding ${EXERCISE_SEED_DATA.length} exercises...`);
+  // Upsert all exercises — inserts new ones, updates existing ones (name, demoUrl, etc.)
+  console.log(`Syncing ${EXERCISE_SEED_DATA.length} exercises...`);
   const BATCH = 50;
   for (let i = 0; i < EXERCISE_SEED_DATA.length; i += BATCH) {
-    await database.insert(exercises).values(EXERCISE_SEED_DATA.slice(i, i + BATCH));
+    await database
+      .insert(exercises)
+      .values(EXERCISE_SEED_DATA.slice(i, i + BATCH))
+      .onConflictDoUpdate({
+        target: exercises.id,
+        set: {
+          name: sql`excluded.name`,
+          muscleGroups: sql`excluded.muscle_groups`,
+          category: sql`excluded.category`,
+          group: sql`excluded."group"`,
+          topRated: sql`excluded.top_rated`,
+          sortOrder: sql`excluded.sort_order`,
+          demoUrl: sql`excluded.demo_url`,
+        },
+      });
   }
-  console.log('Exercise seed complete.');
+  console.log('Exercise sync complete.');
 }

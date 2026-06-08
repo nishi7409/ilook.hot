@@ -1,1 +1,1 @@
-ALTER TABLE exercises ADD COLUMN demo_url text;
+ALTER TABLE exercises ADD COLUMN IF NOT EXISTS demo_url text;
