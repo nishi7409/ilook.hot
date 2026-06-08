@@ -519,5 +519,78 @@
         }
       </div>
     </section>
+
+    <!-- ── Nutrition History Charts ───────────────────────────────── -->
+    <section class="bg-canvas rounded-2xl border border-border-light overflow-hidden" aria-labelledby="history-heading">
+      <div class="p-5 pb-4 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <ng-icon name="heroChartBar" size="20" class="text-coral" />
+          <h2 id="history-heading" class="font-display text-ink text-lg font-medium">Nutrition Trends</h2>
+        </div>
+        <div class="flex gap-1 rounded-lg bg-soft-stone p-0.5" role="radiogroup" aria-label="History period">
+          @for (p of historyPeriods; track p.days) {
+            <button
+              [class]="historyPeriod() === p.days ? 'px-3 py-1 rounded-md text-xs font-medium bg-coral text-white transition-colors' : 'px-3 py-1 rounded-md text-xs font-medium text-muted hover:text-ink transition-colors'"
+              (click)="selectHistoryPeriod(p.days)"
+              [attr.aria-pressed]="historyPeriod() === p.days"
+              role="radio"
+            >{{ p.label }}</button>
+          }
+        </div>
+      </div>
+
+      @if (historyLoading()) {
+        <div class="px-5 pb-5 text-muted text-sm">Loading history…</div>
+      } @else {
+        <!-- Average Summary Cards -->
+        @if (historyAverages().daysLogged > 0) {
+          <div class="px-5 pb-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div class="rounded-xl bg-soft-stone p-3 text-center">
+              <div class="text-xs text-muted mb-0.5">Avg Calories</div>
+              <div class="text-lg font-semibold text-ink">{{ historyAverages().calories | number }}</div>
+            </div>
+            <div class="rounded-xl bg-soft-stone p-3 text-center">
+              <div class="text-xs text-muted mb-0.5">Avg Protein</div>
+              <div class="text-lg font-semibold text-coral">{{ historyAverages().protein }}g</div>
+            </div>
+            <div class="rounded-xl bg-soft-stone p-3 text-center">
+              <div class="text-xs text-muted mb-0.5">Avg Carbs</div>
+              <div class="text-lg font-semibold text-amber-400">{{ historyAverages().carbs }}g</div>
+            </div>
+            <div class="rounded-xl bg-soft-stone p-3 text-center">
+              <div class="text-xs text-muted mb-0.5">Avg Fat</div>
+              <div class="text-lg font-semibold text-blue-400">{{ historyAverages().fat }}g</div>
+            </div>
+          </div>
+
+          <!-- Protein Streak -->
+          @if (proteinStreak() > 0) {
+            <div class="mx-5 mb-3 rounded-xl bg-soft-stone p-3 flex items-center gap-2">
+              <ng-icon name="heroFire" size="20" class="text-coral" />
+              <span class="text-sm text-ink font-medium">{{ proteinStreak() }}-day protein streak</span>
+              <span class="text-xs text-muted ml-1">— hitting {{ goals().protein }}g+ daily</span>
+            </div>
+          }
+        }
+
+        <!-- Calorie Trend Chart -->
+        <div class="px-5 pb-3">
+          <h3 class="text-xs text-muted uppercase tracking-wider mb-2">Calorie Trend</h3>
+          <div echarts [options]="calorieTrendOption()" class="w-full h-48 sm:h-56"></div>
+        </div>
+
+        <!-- Macro Breakdown Chart -->
+        <div class="px-5 pb-5">
+          <h3 class="text-xs text-muted uppercase tracking-wider mb-2">Macro Breakdown</h3>
+          <div echarts [options]="macroTrendOption()" class="w-full h-48 sm:h-56"></div>
+        </div>
+
+        @if (historyAverages().daysLogged === 0) {
+          <div class="px-5 pb-5 text-center text-muted text-sm">
+            No nutrition data for this period. Start logging food to see trends!
+          </div>
+        }
+      }
+    </section>
   </div>
 </div>

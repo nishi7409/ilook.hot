@@ -26,9 +26,13 @@ export class NutritionService {
   private readonly _goals = signal<NutritionGoals>(DEFAULT_GOALS);
   private readonly _weeklyData = signal<Record<string, number>>({});
   private readonly _searchQuery = signal('');
+  private readonly _history = signal<Array<{ date: string; calories: number; protein: number; carbs: number; fat: number }>>([]);
+  private readonly _historyLoading = signal(false);
 
   readonly goals = this._goals.asReadonly();
   readonly todayLog = this._todayLog.asReadonly();
+  readonly history = this._history.asReadonly();
+  readonly historyLoading = this._historyLoading.asReadonly();
 
   readonly todayTotals = computed(() => {
     const entries = this._todayLog().entries;
@@ -201,5 +205,23 @@ export class NutritionService {
       fatGoal: goals.fat,
     }));
     this.http.put('/api/nutrition/goals', goals).subscribe({ error: () => {} });
+  }
+
+  loadHistory(days: number): void {
+    this._historyLoading.set(true);
+    this.http
+      .get<Array<{ date: string; calories: number; protein: number; carbs: number; fat: number }>>(
+        `/api/nutrition/history?days=${days}`,
+      )
+      .subscribe({
+        next: (data) => {
+          this._history.set(data);
+          this._historyLoading.set(false);
+        },
+        error: () => {
+          this._history.set([]);
+          this._historyLoading.set(false);
+        },
+      });
   }
 }

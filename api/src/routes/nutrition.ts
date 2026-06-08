@@ -156,6 +156,57 @@ router.put('/goals', async (c) => {
   return c.json(body);
 });
 
+// GET /history?days=30  — daily macro totals for the last N days
+router.get('/history', async (c) => {
+  const authError = requireAuth(c);
+  if (authError) return authError;
+  const user = c.get('user')!;
+  const days = Math.min(Math.max(parseInt(c.req.query('days') ?? '30', 10) || 30, 1), 365);
+
+  const today = new Date();
+  const start = new Date(today);
+  start.setDate(today.getDate() - (days - 1));
+  const from = start.toISOString().slice(0, 10);
+  const to = today.toISOString().slice(0, 10);
+
+  const rows = await db
+    .select()
+    .from(nutritionLogs)
+    .where(
+      and(
+        eq(nutritionLogs.userId, user.id),
+        gte(nutritionLogs.date, from),
+        lte(nutritionLogs.date, to),
+      ),
+    );
+
+  const byDate: Record<string, { calories: number; protein: number; carbs: number; fat: number }> = {};
+  for (const r of rows) {
+    if (!byDate[r.date]) byDate[r.date] = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+    byDate[r.date].calories += parseFloat(r.calories);
+    byDate[r.date].protein += parseFloat(r.protein);
+    byDate[r.date].carbs += parseFloat(r.carbs);
+    byDate[r.date].fat += parseFloat(r.fat);
+  }
+
+  // Fill in missing days with zeros
+  const result: Array<{ date: string; calories: number; protein: number; carbs: number; fat: number }> = [];
+  const cursor = new Date(start);
+  while (cursor <= today) {
+    const dateKey = cursor.toISOString().slice(0, 10);
+    result.push({
+      date: dateKey,
+      calories: Math.round(byDate[dateKey]?.calories ?? 0),
+      protein: Math.round((byDate[dateKey]?.protein ?? 0) * 10) / 10,
+      carbs: Math.round((byDate[dateKey]?.carbs ?? 0) * 10) / 10,
+      fat: Math.round((byDate[dateKey]?.fat ?? 0) * 10) / 10,
+    });
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return c.json(result);
+});
+
 // GET /search?q=...
 router.get('/search', async (c) => {
   const authError = requireAuth(c);
