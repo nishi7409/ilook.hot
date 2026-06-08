@@ -5,6 +5,7 @@ import { NgIconComponent, provideIcons } from '@ng-icons/core';
 import {
   heroArrowLeft,
   heroArrowRight,
+  heroArrowTopRightOnSquare,
   heroBars2,
   heroBolt,
   heroCalendarDays,
@@ -49,7 +50,7 @@ type CalMeta =
     provideIcons({
       heroPlus, heroCheck, heroTrash, heroPencilSquare, heroCalendarDays,
       heroBolt, heroChevronLeft, heroChevronRight, heroXMark, heroArrowLeft, heroArrowRight, heroSparkles,
-      heroDocumentDuplicate, heroBars2,
+      heroDocumentDuplicate, heroBars2, heroArrowTopRightOnSquare,
     }),
   ],
   templateUrl: './programs.html',

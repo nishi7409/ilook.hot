@@ -612,7 +612,22 @@
                               <ng-icon name="heroBolt" class="text-body-muted" size="12" />
                             </div>
                             <div class="flex-1 min-w-0">
-                              <p class="text-ink text-sm font-medium font-body leading-tight">{{ ex.exercise.name }}</p>
+                              <div class="flex items-center gap-1.5">
+                                <p class="text-ink text-sm font-medium font-body leading-tight">{{ ex.exercise.name }}</p>
+                                @if (ex.exercise.demoUrl) {
+                                  <a
+                                    [href]="ex.exercise.demoUrl"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="text-muted hover:text-primary transition-colors shrink-0"
+                                    [attr.aria-label]="'View demo for ' + ex.exercise.name"
+                                    title="View exercise demo"
+                                    (click)="$event.stopPropagation()"
+                                  >
+                                    <ng-icon name="heroArrowTopRightOnSquare" size="12" />
+                                  </a>
+                                }
+                              </div>
                               <p class="text-muted text-[10px] font-body truncate">{{ ex.exercise.muscleGroups.join(' · ') }}</p>
                             </div>
                             <div class="flex items-center gap-1.5 text-[11px] text-muted font-body shrink-0">

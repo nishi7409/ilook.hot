@@ -64,6 +64,7 @@ export const exercises = pgTable('exercises', {
   group: text('group').notNull(), // Chest | Shoulders | Biceps | etc.
   topRated: boolean('top_rated').default(false).notNull(),
   sortOrder: integer('sort_order').default(0).notNull(),
+  demoUrl: text('demo_url'),
 });
 
 // Day schedules (recurrence entries)

@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, DestroyRef, effect, injec
 import { FormsModule } from '@angular/forms';
 import { NgIconComponent, provideIcons } from '@ng-icons/core';
 import {
+  heroArrowTopRightOnSquare,
   heroArrowTrendingUp,
   heroBolt,
   heroCheckCircle,
@@ -36,7 +37,7 @@ interface SetDraftRow {
     provideIcons({
       heroPlayCircle, heroStopCircle, heroXMark, heroBolt, heroFire,
       heroCheckCircle, heroArrowTrendingUp, heroClock,
-      heroChevronUp, heroChevronDown, heroChevronRight,
+      heroChevronUp, heroChevronDown, heroChevronRight, heroArrowTopRightOnSquare,
     }),
   ],
   templateUrl: './workouts.html',
